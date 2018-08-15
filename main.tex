@@ -1,0 +1,193 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Efficient implementation of binary decision diagrams
+%
+% Version 1.0 (2018)
+%
+% Original author:
+% Rune Krauss
+%
+% License:
+% GPL (http://www.gnu.org/licenses/gpl.html)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% KOMA-Script: Bundle of classes and packages (article)
+\documentclass[openright,twoside,a4paper,12pt,headsepline]{scrartcl}
+
+% Use packages for languages, colors, formats etc.
+\usepackage{graphicx}
+\usepackage{ngerman}
+\usepackage[ngerman]{babel}
+\usepackage[right]{eurosym}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{courier}
+
+% Variables that are to be available within the entire work
+\input{settings/commands}
+
+\usepackage{lmodern}
+\usepackage{fix-cm}
+\usepackage{longtable}
+\usepackage{geometry}
+\geometry{left=3.5cm, right=2cm, top=2.5cm, bottom=2cm}
+\usepackage{fancybox}
+\usepackage[hyphens,obeyspaces,spaces]{url}
+\usepackage{color}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage[bookmarksnumbered,pdftitle={\titleDoc},hyperfootnotes=false]{hyperref}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\nouppercase{\leftmark}}
+\fancyhead[C]{}
+\fancyhead[LE,RO]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\usepackage{array}
+\bibliographystyle{alphadin}
+\frenchspacing
+\usepackage{setspace}
+\usepackage{makecell}
+\usepackage{boldline}
+\usepackage[parfill]{parskip}
+\usepackage{hhline}
+\usepackage{capt-of}
+\usepackage{makeidx}
+
+% Treat source code
+\usepackage{listings}
+\lstset{numbers=left, xleftmargin=3.4pt,
+	xrightmargin=3.4pt, numberstyle=\tiny, numbersep=5pt, keywordstyle=\color{black}\bfseries, stringstyle=\ttfamily,showstringspaces=false,basicstyle=\footnotesize,captionpos=b}
+\lstset{language=java}
+
+\makeindex
+
+\usepackage[german]{nomencl}
+\let\
+
+% Create the list of abbreviations
+\renewcommand{\nomname}{Abkürzungsverzeichnis}
+\setlength{\nomlabelwidth}{.25\hsize}
+\renewcommand{\nomlabel}[1]{#1 \dotfill}
+\setlength{\nomitemsep}{-\parsep}
+\makenomenclature
+
+\clubpenalty = 10000
+\widowpenalty = 10000
+\displaywidowpenalty = 10000
+
+% Formatting for theorems etc.
+\newcounter{theoremnumber}
+\newtheoremstyle{dotless}
+{0.5em}    
+{0.5em}    
+{}         
+{}         
+{\bfseries}
+{:}       
+{\newline} 
+{}         
+\theoremstyle{dotless}
+\newtheorem{set}[theoremnumber]{Satz}
+\newtheorem{defi}[theoremnumber]{Definition}
+\newtheorem{lem}[theoremnumber]{Lemma}
+\newtheorem{kor}[theoremnumber]{Korollar}
+\newtheorem{bem}[theoremnumber]{Bemerkung}
+\newtheorem{bsp}[theoremnumber]{Beispiel}
+\newtheorem{pro}[theoremnumber]{Proposition}
+\renewcommand{\proofname}{Beweis}
+
+\begin{document}
+
+% Hyphenation to handle the representation of words
+\input{settings/hyphenation}
+
+% Display of the first page
+\include{settings/cover}
+
+\onehalfspacing
+
+% Preface of the work (not in the table of contents)
+\include{settings/abstract}
+
+\singlespacing
+
+\newpage
+\setcounter{tocdepth}{3}
+
+% Create the table of contents
+\tableofcontents
+
+\newpage
+
+% Create the list of figures
+\addcontentsline{toc}{section}{Abbildungsverzeichnis}
+\listoffigures
+
+\newpage
+
+% Create the list of tables
+\addcontentsline{toc}{section}{Tabellenverzeichnis}
+\listoftables
+
+\newpage
+
+% Create the list of abbreviations
+\addcontentsline{toc}{section}{Quellcodeverzeichnis}
+\fancyhead[L]{Quellcodeverzeichnis}
+\renewcommand{\lstlistlistingname}{Quellcodeverzeichnis}
+\renewcommand{\lstlistingname}{Code}
+\lstlistoflistings
+
+\newpage
+
+% Create the list of abbreviations
+\addcontentsline{toc}{section}{Abkürzungsverzeichnis}
+\fancyhead[L]{Abkürzungsverzeichnis}
+\input{settings/abbreviations/abbreviations}
+\printnomenclature
+
+\setlength{\columnsep}{25pt}
+
+\newpage
+\fancyhead[L]{\nouppercase{\leftmark}}
+
+\onehalfspacing
+
+% Introduction of the thesis
+\input{settings/introduction}
+
+% Contents of the thesis
+\input{content/section1}
+\input{content/section2}
+\input{content/section3}
+
+% Conclusion of the thesis
+\input{settings/conclusion}
+
+\onecolumn
+\singlespacing
+
+\newpage
+
+% Create the bibliography (Harvard)
+\addcontentsline{toc}{section}{Literaturverzeichnis}
+\renewcommand\refname{Literaturverzeichnis}
+\bibliography{main}
+
+\onehalfspacing
+
+\newpage
+
+% Appendix
+\addcontentsline{toc}{section}{Anhang}
+\fancyhead[L]{Anhang}
+\input{appendix/appendix}
+
+% Statutory declaration
+\addcontentsline{toc}{section}{Eidesstattliche Erklärung}
+\include{settings/statutory_declaration}
+
+\end{document}

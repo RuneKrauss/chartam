@@ -1,0 +1,210 @@
+\newpage
+\section{Experimentelle Ergebnisse}
+\label{sec:experimentelleErgebnisse}
+In diesem Kapitel werden die experimentellen Resultate dieses Softwarepakets präsentiert. Um das Speicherverhalten bzw. die Laufzeit zu bewerten, werden komplexere kombinatorische Schaltungen als Benchmarks von ISCAS'85 in Form von sog. Traces hinzugezogen \cite{b1988}. Ein \emph{Trace} kennzeichnet dabei eine Menge von Aufrufen in dem Paket, die durch einen \emph{Trace-Treiber} hinsichtlich der aufgerufenen Operationen bei anderen Paketen wiederholt werden können. Somit ist also auch ein Vergleich zwischen verschiedenen Paketen möglich. Insgesamt umfassen die Schaltungen ALUs, Addierer, Komparatoren und Multiplizierer, wobei diese durch verschiedene Nummern charakterisiert werden. Bei den jeweiligen Paket-internen Tests wurden Multiplizierer betrachtet, wobei diese durch \glqq C6288-x\grqq{} bezeichnet sind. Dabei steht \glqq x\grqq{} für die Bits, womit bspw. \glqq C6288-16\grqq{} für einen 16-bit Multiplizierer steht, der 32 Ein- und Ausgänge sowie 2406 Gatter besitzt. Konkret wurde $x \in \{ 8,9,10,11,12,13,14 \}$ betrachtet, da bezüglich $x > 14$ immer die festgelegte Zeit überschritten wurde. Bei einem späteren Vergleich mit dem Softwarepaket \emph{CUDD} (siehe Kapitel \ref{sec:vglCudd} auf Seite \pageref{sec:vglCudd}) wurden weiterhin ALUs, Addierer sowie Komparatoren hinzugezogen, die in Tabelle \ref{tab:iscas85} ersichtlich sind:
+\begin{table}[bth]
+	\centering
+	\caption{ISCAS'85 Schaltkreise}
+	\label{tab:iscas85}
+	\begin{tabular}{ | l | p{10cm} | }
+		\hline
+		\textbf{Bezeichnung} & \textbf{Funktion} \\ \hline
+		C432 & 27-Kanal Interrupt Controller \\ \hline
+		C499/C1355 & 32-bit SEC \\ \hline
+		C880 & 8-bit ALU \\ \hline
+		C1908 & 16-bit SEC/DED \\ \hline
+		C2670 & 12-bit ALU und Controller \\ \hline
+		C3540 & 8-bit ALU \\ \hline
+		C5315 & 9-bit ALU \\ \hline
+		C6288-x & x-bit Multiplizierer \\ \hline
+		C7552 & 32-bit Addierer/Komparator \\ \hline
+	\end{tabular}
+\end{table}\\
+\noindent 
+Eine genaue Beschreibung dieser einzelnen Schaltkreise ist im Anhang ab Seite \pageref{sec:iscas85} ersichtlich.\\
+Für die durchgeführten internen Tests hinsichtlich der Multiplizierer galt die Variablenordnung $x_{n-1} < x_{n-2} < \dots < y_{n-1} < y_{n-2} < \dots < y_0$, wenn von den dazugehörigen Funktionen $X = \sum_{i=0}^{n-1}2^ix_i$ und $Y = \sum_{i=0}^{n-1}2^iy_i$ ausgegangen wird. Hinsichtlich dem Vergleich mit CUDD galt für die restlichen Schaltkreise für die Variablenordnung die jeweilige Reihenfolge, in der die Eingaben stehen.\\
+Die Implementierung ist im Wesentlichen schneller als eine einfache Umsetzung der originalen Algorithmen \cite{b1986}, die von Bryant vorgestellt wurden, was in Kapitel \ref{sec:implementierung} auf Seite \pageref{sec:implementierung} im Hinblick auf die Analyse der Laufzeiten begründet wurde. Um eventuelle Bugs hinsichtlich Speicherüberläufe, Nullzeiger-Dereferenzierungen, \glqq Out of bounds\grqq{} usw. festzustellen, wurde außerdem das Tool \glqq CPPCheck\grqq{} verwendet. Es zeigte bei keinem Bestandteil diesbezüglich Auffälligkeiten. Darüber hinaus wurden Unittests mit \glqq Catch\grqq{} hinsichtlich der Klassen durchgeführt, um Fehler der berechneten Ergebnisse auszuschließen. Damit zusammenhängend wurde explizit das Verhalten des Referenzzählers sowie die Korrektheit der Tabellen und Synthesen überprüft. Die Tests wurden dabei in Szenarios gruppiert und folgen dem Stil von Kausalketten. Ein Auszug des daraus resultierenden Reports ist im Anhang auf Seite \pageref{sec:unit} ersichtlich.\\
+Neben dem Test der implementierten Techniken des Paketes erfolgte -- wie bereits erwähnt -- außerdem ein Vergleich hinsichtlich der Performanz mit dem sequenziellen Paket CUDD. Dieses C-Paket wurde von Fabio Somenzi im Jahre 1996 entwickelt und wird in verschiedenen Model-Checkern verwendet sowie stetig überarbeitet. Die bemerkenswerte Eigenschaft ist dabei eine große Sammlung von Algorithmen zur Verbesserung der Variablenordnung. Es basiert -- im Gegensatz zu diesem Softwarepaket -- auf Zeiger und ist eines der effizientesten und wohl meist eingesetzten Pakete weltweit \cite{j2003}.\\
+Die Bibliothek CUDD ist weiterhin im Gegensatz zu anderen Paketen wie \emph{JDD} oder \emph{BuDDy} stabiler im Umgang mit der Synthese, was beim Model Checking herausgefunden werden konnte \cite{rk2017}. Zudem nutzt diese Bibliothek ähnliche Umsetzungen der Techniken, welche in dieser Arbeit beschrieben worden sind und eignet sich -- wie bereits erwähnt -- auch für das Model Checking, da bspw. das relationale Produkt bezüglich BDDs bestimmt werden kann \cite{m1992}.\\
+Die Arbeitsumgebung für die Experimente umfasste eine PC-Workstation (macOS Sierra, Intel i5 2,4 GHz CPU, 3 MB Cache und 16 GB RAM). Die initiale Größe für den Cache und die Hashtabelle betrug gemäß Kapitel \ref{sec:ctable} auf Seite \pageref{sec:ctable} approximiert $500.009$ Knoten. Somit handelt es sich um eine Primzahl, was für die durchgeführten Tests im Hinblick auf die Hashverfahren (siehe Kapitel \ref{sec:hashing} auf Seite \pageref{sec:hashing}) wichtig war. Für die Variablenordnung wurde immer dieselbe Ordnung für die Ausgaben genutzt. Die CPU-Zeit wird in Sekunden angegeben, der benutzte Speicher hingegen in MB. Zudem wurden immer zehn Versuche gemacht, wovon der durchschnittliche Wert (bis auf eine Stelle nach dem Komma gerundet) ermittelt wurde. Das dazugehörige Verhältnis wird in \glqq TR\grqq{} (Time Ratio) bzw. \glqq MR\grqq{} (Memory Ratio) angegeben, wobei diese Resultate bis auf zwei Stellen nach dem Komma gerundet sind. Die maximale Ausführungszeit wurde auf 30 Minuten, d.\,h. 1800 Sekunden eingestellt. Sollte eine Zeitüberschreitung vorliegen, so wird dies durch \glqq TO\grqq{} gekennzeichnet, was für \glqq Time Over\grqq{} steht. Eine Speicherüberschreitung wird hingegen durch \glqq MO\grqq{} beschrieben, was für \glqq Memory Over\grqq{} steht. Hinsichtlich der Gesamtbewertung wird dies als festgelegter Maximalwert gewertet. Wenn es nicht anders erwähnt ist, so gilt hinsichtlich des Hashings das Modulo-Verfahren (siehe Kapitel \ref{sec:mod} auf Seite \pageref{sec:mod}) mit der Funktion $h(f, g, h) = ( (g + h) >> f) \text{ }mod\text{ } m$ sowie als Kollisionsstrategie die Verkettung mit Überläufern (siehe Kapitel \ref{sec:verkettung} auf Seite \pageref{sec:verkettung}). Hierbei wurden die Knoten in einer Kollisionskette bzw. Vektor zufällig miteinander verbunden. Bezüglich der CT wurde keine Kollisionsstrategie verwendet. Darüber hinaus wurde generell ein ROBDD mit komplementären Kanten (siehe Kapitel \ref{sec:complementEdges} auf Seite \pageref{sec:complementEdges}) aufgebaut, die Standardisierung (siehe Kapitel \ref{sec:standard} auf Seite \pageref{sec:standard}) war eingeschaltet und es galt eine auf Indizes basierende Arbeitsweise.
+
+\subsection{Management der UT}
+\label{sec:ovh}
+Die Wahl der jeweiligen Hashfunktion (siehe Kapitel \ref{sec:utable} auf Seite \pageref{sec:utable}) ist ein entscheidender Faktor, wie groß der Aufwand der Synthesen ist. In Kapitel \ref{sec:hashing} auf Seite \pageref{sec:hashing} wurden zwei mögliche Varianten vorgestellt, nämlich das Modulo- und Multiplikations-Verfahren, die untersucht worden sind. Die Hashfunktion für das Multiplikations-Verfahren war gemäß Kapitel \ref{sec:mul} auf Seite \pageref{sec:mul} durch  $h(g, h) = ((g+h\cdot 12.582.917)\cdot 4.256.249) >> (64 - log_2(500.009))$ gekennzeichnet.\\
+Weiterhin wurden in Kapitel \ref{sec:collision} auf Seite \pageref{sec:collision} Kollisionsstrategien bezüglich der UT vorgestellt, die im Folgenden ebenfalls gegenübergestellt werden. Als offenes Hashing wurde die Variante des doppelten Hashings für die Sondierung verwendet, d.\,h. \\$h'(f, g, h) = (1 + ( (g + h) >> f)) \text{ }mod\text{ } m$ bzw. $h'(g, h) = (1+((g+h\cdot 12.582.917)\cdot 4.256.249)) >> (64 - log_2(500.009))$ und $s(j,k) = j \cdot h'(k)$, womit sich beide Hashfunktionen voneinander unterschieden haben. Folgende Tabellen zeigen die daraus resultierenden Ergebnisse:
+\begin{table}[bth]
+	\footnotesize
+	\centering
+	\caption{Modulo-Verfahren mit Kollisionsstrategien}
+	\label{tab:ovh}
+	\begin{tabular}{ | l | c | c | c | c | c | c |}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Schaltung}} & \multicolumn{2}{c|}{\textbf{Offenes Hashing}} & \multicolumn{2}{c|}{\textbf{Verkettung von Überläufern}} & \multicolumn{2}{c|}{~} \\ \hline
+		~ & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{MR}} & \multicolumn{1}{c|}{\textbf{TR}}\\ \hline
+		C6288-8 & 31,5 & 0,9 & 23,1 & 0,6 & 1,36 & 1,50  \\ \hline
+		C6288-9 & 43,5 & 3,4 & 34,1 & 2,6 & 1,28 & 1,31  \\ \hline
+		C6288-10 & 75,9 & 11,5 & 63,9 & 8,3 & 1,19 & 1,39  \\ \hline
+		C6288-11 & 201,3 & 40,7 & 139,2 & 32,9 & 1,45 & 1,24  \\ \hline
+		C6288-12 & 588,2 & 187,5 & 465,9 & 151,3 & 1,26 & 1,24  \\ \hline
+		C6288-13 & 1.304,9 & 701,7 & 1.175,2 & 563,6 & 1,11 & 1,25 \\ \hline
+		C6288-14 & 3.984,1 & TO & 3.573,3 & 1.775,1 & 1,11 & > 1,01 \\ \hlineB{3}
+		\multicolumn{1}{|c|}{\textbf{Gesamt}} & 6.229,4 & > 2.745,7 & 5.474,7 & 2.534,4 & 1,14 & > 1,08 \\ \hline
+	\end{tabular}
+\end{table}
+\newpage
+\begin{table}[bth]
+	\footnotesize
+	\centering
+	\caption{Multiplikations-Verfahren mit Kollisionsstrategien}
+	\label{tab:ovh2}
+	\begin{tabular}{ | l | c | c | c | c | c | c |}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Schaltung}} & \multicolumn{2}{c|}{\textbf{Offenes Hashing}} & \multicolumn{2}{c|}{\textbf{Verkettung von Überläufern}} & \multicolumn{2}{c|}{~} \\ \hline
+		~ & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{MR}} & \multicolumn{1}{c|}{\textbf{TR}}\\ \hline
+		C6288-8 & 33,4 & 1,0 & 22,3 & 0,5 & 1,50 & 2,0  \\ \hline
+		C6288-9 & 42,8 & 3,4 & 37,3 & 2,8 & 1,15 & 1,21  \\ \hline
+		C6288-10 & 81,3 & 12,1 & 67,0 & 8,9 & 1,21 & 1,36  \\ \hline
+		C6288-11 & 210,1 & 42,2 & 145,1 & 33,5 & 1,45 & 1,26  \\ \hline
+		C6288-12 & 599,6 & 193,5 & 458,9 & 148,1 & 1,31 & 1,31  \\ \hline
+		C6288-13 & 1.295,3 & 698,2 & 1.183,5 & 568,2 & 1,01 & 1,23 \\ \hline
+		C6288-14 & 4.040,8 & TO & 3.580,9 & 1.778,7 & 1,13 & > 1.01 \\ \hlineB{3}
+		\multicolumn{1}{|c|}{\textbf{Gesamt}} & 6.303,3 & > 2.750,4 & 5.495,0 & 2.540,7 & 1,15 & > 1,08 \\ \hline
+	\end{tabular}
+\end{table}
+Aus der Tabelle \ref{tab:ovh2} mit dem Modulo-Verfahren geht hervor, dass das Speicherverhalten als auch die Laufzeit zum Aufbau des ROBDDs mit der Verkettung von Überläufern als Kollisionsstrategie besser ist. So wurden hierbei mehr als 211,3 Sekunden weniger benötigt, was einer Zeitersparnis von $\approx$ 14 \% entspricht. Bezüglich der Speichernutzung wurden 757,7 MB weniger beansprucht, was wiederum eine Ersparnis von $\approx$ 8 \% kennzeichnet. Typisch für ROBDD-Anwendungen ist, dass es häufig negative Resultate bezüglich Knotenexistenzprüfungen gibt. Erfolglose Suchen terminieren darüber hinaus erst, sobald eine freie Stelle gefunden werden konnte. Damit ist die längere Laufzeit bzw. das größere Speicheraufkommen beim offenen Hashing zu erklären. Dagegen gibt es bei der Verkettung mit Überläufern nur vier Elemente pro Knoten (siehe Kapitel \ref{sec:utableBdd} auf Seite \pageref{sec:utableBdd}), womit der Overhead zur Allokation vermindert wird. Dadurch, dass Knoten bei Kollisionen außerhalb der jeweiligen Hashtabelle gespeichert werden, gibt es zudem weniger Platzverschwendung für unbelegte Einträge.\\
+Weiterhin wurde -- bezogen auf das Multiplikations-Verfahren gemäß Tabelle \ref{tab:ovh} auf Seite \pageref{tab:ovh} -- bei der Variante mit Verkettung von Überläufern 808,3 MB weniger an Speicher benötigt, was einer Einsparung von $\approx$ 15 \% im Vergleich zum offenen Hashing entspricht. Zudem benötigte diese Variante 209,7 Sekunden weniger, um den ROBDD aufzubauen. Dies entspricht einer Zeiteinsparung von $\approx$ 8 \%. Die Begründung ist analog zum Modulo-Verfahren zu betrachten. Bezüglich einer ROBDD-Anwendung ist also eine Verkettung von Überläufern dem offenen Hashing vorzuziehen.\\
+Ein direkter Vergleich -- hinsichtlich der Verkettung von Überläufern -- zwischen dem Modulo- und Multiplikations-Verfahren ergibt, dass das Modulo-Verfahren insgesamt gesehen 20,3 MB weniger Speicher benötigte, um die ROBDDs aufzubauen. Zudem gab es eine Zeitersparnis von 6,3 Sekunden. Der Divisionsblock der ALU ist eine zeitintensive Operation. Allerdings entspricht bspw. ein Rechts-Shift um $i$ Stellen einem Divisor $2^i$ für ein $i \in \mathbb{N}$, wobei beim Modulo-Verfahren auch die höheren Bits zur Adressberechnung benutzt werden können, wenn für $m$ eine Primzahl gewählt wird. Bei der Multiplikation hingegen wird innerhalb der ALU eine Fließkommazahl eingesetzt, um irrationale Zahlen zu verarbeiten. Ganze Zahlen im Rechner können als Bruchzahlen mit einem Dezimalpunkt vor der höchstwertigen Ziffer betrachtet werden, wobei für $m$ dann eine Zweierpotenz gewählt wird. Wird hierbei für $x$ der goldene Schnitt bestimmt, so ergibt sich ebenfalls eine Gleichverteilung der Knoten, womit insgesamt der Unterschied marginal ausfällt.
+
+\subsection{Management der CT}
+\label{sec:vglcK}
+In Kapitel \ref{sec:ctable} auf Seite \pageref{sec:ctable} wurde die CT diskutiert, nämlich als sog. hashbasierter Cache bzw. Cache mit Kollisionsstrategie, wodurch der Speicherplatz/Rechenaufwand der Synthese verringert werden soll. Zunächst einmal wurde untersucht, inwieweit der Einsatz einer CT die Synthese bezüglich der Laufzeit und dem Speicherverhalten verbessert, was anhand folgender Tabelle \ref{tab:ec} ersichtlich ist:
+\begin{table}[bth]
+	\footnotesize
+	\centering
+	\caption{Inaktive und aktive CT}
+	\label{tab:ec}
+	\begin{tabular}{ | l | c | c | c | c | c | c |}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Schaltung}} & \multicolumn{2}{c|}{\textbf{Inaktive CT}} & \multicolumn{2}{c|}{\textbf{Aktive CT}} & \multicolumn{2}{c|}{~} \\ \hline
+		~ & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{MR}} & \multicolumn{1}{c|}{\textbf{TR}}\\ \hline
+		C6288-8 & 1118,9 & 29,7 & 23,9 & 0,7 & 46,82 & 42,43  \\ \hline
+		C6288-9 & 1499,7 & 125,9 & 32,9 & 2,5 & 45,58 & 50,36  \\ \hline
+		C6288-10 & 3.107,1 & 413,5 & 63,6 & 8,3 & 48,85 & 49,82  \\ \hline
+		C6288-11 & 7.209,8 & TO & 138,3 & 32,3 & 52,13 & 55,95  \\ \hline
+		C6288-12 & MO & TO & 469,1 & 152,8 & > 34,11 & > 11,78  \\ \hline
+		C6288-13 & MO & TO & 1.179,1 & 568,9 & > 13,57 & > 3,16 \\ \hline
+		C6288-14 & MO & TO & 3.580,1 & 1.783,5 & > 4,47 & > 1,01 \\ \hlineB{3}
+		\multicolumn{1}{|c|}{\textbf{Gesamt}} & > 60.935,5 & > 7.769,1 & 5487,0 & 2549,0 & > 11,11 & > 3,05 \\ \hline
+	\end{tabular}
+\end{table}\\
+Aus dem direkten Vergleich geht hervor, dass der Einsatz eines Caches alle ROBDDs aufstellen konnte. Wird kein Cache eingesetzt, so war zu erkennen, dass der Speicher bei den Schaltkreisen \glqq C6288-12\grqq{}, \glqq C6288-13\grqq{} und \glqq C6288-14\grqq{} voll ausgelastet wurde bzw. die Berechnung nicht fertiggestellt werden konnte. Bei \glqq C6288-11\grqq{} hingegen konnte nur die Berechnung nicht in der gemessenen Zeit fertiggestellt werden. Wenn z.\,B. der Schaltkreis \glqq C6288-10\grqq{} betrachtet wird, so kann eine Zeitersparnis -- durch den Einsatz eines Caches -- von 405,2 Sekunden festgestellt werden. Der Einsatz eines Cache ist hier somit rund $50$ Mal schneller gewesen. Demnach ist der Einsatz eines Caches insgesamt mehr als lohnenswert.\\
+Für den weiteren Vergleich bezüglich der Cache-Arten wurde die Kollisionsstrategie der Verkettung von Überläufern eingesetzt, die analog zur UT (siehe Kapitel \ref{sec:verkettung} auf Seite \pageref{sec:verkettung}) betrachtet werden kann. Hierbei werden also Knoten nicht direkt überschrieben, sondern in einer Liste als Nachfolger gespeichert. Die jeweiligen Ergebnisse sind in der nachfolgenden Tabelle \ref{tab:vglcKc} auf Seite \pageref{tab:vglcKc} ersichtlich:
+\newpage
+\begin{table}[bth]
+	\footnotesize
+	\centering
+	\caption{Hashbasierter Cache und Cache mit Kollisionsstrategie}
+	\label{tab:vglcKc}
+	\begin{tabular}{ | l | c | c | c | c | c | c |}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Schaltung}} & \multicolumn{2}{c|}{\textbf{Cache mit Kollisionsstrategie}} & \multicolumn{2}{c|}{\textbf{Hashbasierter Cache}} & \multicolumn{2}{c|}{~} \\ \hline
+		~ & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{MR}} & \multicolumn{1}{c|}{\textbf{TR}}\\ \hline
+		C6288-8 & 26,5 & 0,6 & 22,9 & 0,6 & 1,16 & 1,0  \\ \hline
+		C6288-9 & 38,1 & 2,3 & 38,8 & 2,9 & 0,98 & 0,79  \\ \hline
+		C6288-10 & 71,9 & 8,0 & 64,9 & 8,8 & 1,11 & 0,91  \\ \hline
+		C6288-11 & 153,8 & 30,5 & 143,9 & 33,2 & 1,07 & 0,92  \\ \hline
+		C6288-12 & 513,4 & 145,2 & 452,9 & 149,9 & 1,13 & 0,97  \\ \hline
+		C6288-13 & 1.512,6 & 542,8 & 1.183,5 & 568,2 & 1,28 & 0,96 \\ \hline
+		C6288-14 & 3.998,7 & 1.728,0 & 3.580,9 & 1.778,7 & 1,12 & 0,97 \\ \hlineB{3}
+		\multicolumn{1}{|c|}{\textbf{Gesamt}} & 6.315,0 & 2.457,4 & 5.487,8 & 2.542,3 & 1,15 & 0,97 \\ \hline
+	\end{tabular}
+\end{table}
+\noindent
+Wenn demzufolge ein Cache mit Kollisionsstrategie eingesetzt wird, so werden im Gegensatz zum hashbasierten Cache 84,9 Sekunden, d.\,h. $\approx$ 3 \% weniger benötigt, die ROBDDs aufzubauen. Dies liegt vor allem daran, dass es mehr Cache-Misses gibt, weshalb neue Berechnungen stattfinden müssen. Konkret betrachtet gab es $\approx$ 14,2 \% mehr ITE-Aufrufe. Jedoch benötigte der hashbasierte Cache 827,2 MB bzw. 15 \% weniger Speicher zum Aufbau. Hierbei brauchte der Cache mit Kollisionsstrategie insbesondere mehr Verarbeitungszeit für die Operation \texttt{hasNext} (siehe Code \ref{lst:ite} auf Seite \pageref{lst:ite}) sowie die damit zusammenhängende Speicherbereinigung. Gemäß Kapitel \ref{sec:implementierung} auf Seite \pageref{sec:implementierung} muss der Speicher besonders optimiert werden, da dieser ein Hauptproblem im Umgang mit ROBDDs darstellt. Weiterhin wird durch die Approximation der Größe des Caches dem Fall entgegengewirkt, dass der ITE-Algorithmus im Worst Case einen exponentiellen Aufwand hat. Aufgrund dem wesentlich geringeren Overhead bezüglich dem Speicher sollte daher der hashbasierte Cache benutzt werden.
+
+\subsection{Nutzung von komplementären Kanten}
+\label{sec:bddCom}
+In Kapitel \ref{sec:complementEdges} auf Seite \pageref{sec:complementEdges} wurden komplementäre Kanten eingeführt, womit zusätzlich die Negation direkt in einem ROBDD gespeichert wird. Damit hierbei die Kanonizität als Eigenschaft nicht verloren geht, mussten zusätzliche Regeln bzw. Abfragen innerhalb des ITE-Operators (siehe Kapitel \ref{sec:ite} auf Seite \pageref{sec:ite}) eingefügt werden. Daher wurde weiterhin untersucht, inwieweit sich diese Technik auf das Speicherverhalten bzw. die Laufzeit auswirkt. Die Ergebnisse dazu sind in der folgenden Tabelle \ref{tab:bddCom} auf Seite \pageref{tab:bddCom} ersichtlich:
+\newpage
+\begin{table}[bth]
+	\footnotesize
+	\centering
+	\caption{Nutzung von komplementären Kanten}
+	\label{tab:bddCom}
+	\begin{tabular}{ | l | c | c | c | c | c | c |}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Schaltung}} & \multicolumn{2}{c|}{\textbf{Ohne CEs}} & \multicolumn{2}{c|}{\textbf{Mit CEs}} & \multicolumn{2}{c|}{~} \\ \hline
+		~ & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{MR}} & \multicolumn{1}{c|}{\textbf{TR}}\\ \hline
+		C6288-8 & 33,9 & 1,3 & 24,1 & 0,7 & 1,41 & 1,86  \\ \hline
+		C6288-9 & 43,0 & 4,9 & 36,6 & 2,7 & 1,17 & 1,81  \\ \hline
+		C6288-10 & 76,3 & 14,9 & 64,4 & 8,7 & 1,18 & 1,71  \\ \hline
+		C6288-11 & 163,8 & 54,2 & 145,5 & 33,9 & 1,13 & 1,60  \\ \hline
+		C6288-12 & 495,2 & 298,2 & 463,4 & 156,1 & 1,07 & 1,91  \\ \hline
+		C6288-13 & 1.412,6 & 1.021,7 & 1.193,9 & 570,5 & 1,18 & 1,79 \\ \hline
+		C6288-14 & 4.050,3 & 3.378,1 & 3.569,7 & 1.772,3 & 1,13 & 1,91 \\ \hlineB{3}
+		\multicolumn{1}{|c|}{\textbf{Gesamt}} & 6.275,1 & 4.773,3 & 5.497,6 & 2.544,9 & 1,14 & 1,88\\ \hline
+	\end{tabular}
+\end{table}
+Aus der Tabelle \ref{tab:bddCom} geht hervor, dass das Speicheraufkommen bei ROBDD mit CEs 777,5 MB weniger benötigte, prozentual ist die Verbesserung demnach auf $\approx$ 14 \% beziffert. Dies liegt vor allem daran, dass die ROBDDs mit CEs kleiner sind bzw. weniger Knoten beim damit zusammenhängenden Aufbau benötigen. Weiterhin wird kein zusätzlicher Speicher beansprucht, da der LSB von Zeigern zur Kodierung des complement-Bits benutzt wird. Zudem bestand aber auch ein Zeitgewinn von 2.228,4 Sekunden, d.\,h. $\approx$ 88 \%. Dies liegt hauptsächlich daran, dass komplementäre Operationen in $O(1)$ durchgeführt werden können, da die Negation der jeweiligen Funktion bei der Synthese direkt aufgebaut wird.
+
+\subsection{Nutzung von Standard-Tripeln}
+\label{sec:sTripel}
+In Kapitel \ref{sec:standard} auf Seite \pageref{sec:standard} wurde die Standardisierung von ITE-Aufrufe vorgestellt, was zu einer Verbesserung der Performanz führen soll. So können Kombinationen bezüglich der Parameter -- die zum gleichen Ergebnis führen -- in Äquivalenzklassen zusammengefasst werden, wobei dann ein Repräsentant daraus gewählt wird, der das jeweilige Resultat repräsentiert. Die folgende Tabelle \ref{tab:sTripel} zeigt die jeweiligen Ergebnisse, die sich infolge der Experimente ergeben haben:
+\begin{table}[bth]
+	\footnotesize
+	\centering
+	\caption{Nutzung von Standard-Tripeln}
+	\label{tab:sTripel}
+	\begin{tabular}{ | l | c | c | c | c | c | c |}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Schaltung}} & \multicolumn{2}{c|}{\textbf{Ohne Standardisierung}} & \multicolumn{2}{c|}{\textbf{Mit Standardisierung}} & \multicolumn{2}{c|}{~} \\ \hline
+		~ & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{MR}} & \multicolumn{1}{c|}{\textbf{TR}}\\ \hline
+		C6288-8 & 25,1 & 0,7 & 23,2 & 0,7 & 1,08 & 1,0  \\ \hline
+		C6288-9 & 40,5 & 3,2 & 35,3 & 2,7 & 1,15 & 1,19  \\ \hline
+		C6288-10 & 69,4 & 9,4 & 62,9 & 8,6 & 1,10 & 1,09  \\ \hline
+		C6288-11 & 160,9 & 38,8 & 149,1 & 34,5 & 1,08 & 1,12  \\ \hline
+		C6288-12 & 510,3 & 166,9 & 470,5 & 158,5 & 1,08 & 1,05  \\ \hline
+		C6288-13 & 1.261,7 & 586,0 & 1.175,2 & 567,9 & 1,07 & 1,03 \\ \hline
+		C6288-14 & 3.715,8 & 1.827,7 & 3.598,4 & 1.780,1 & 1,08 & 1,03 \\ \hlineB{3}
+		\multicolumn{1}{|c|}{\textbf{Gesamt}} & 5.783,7 & 2.632,7 & 5.514,6 & 2.553,0 & 1,05 & 1,03\\ \hline
+	\end{tabular}
+\end{table}\\
+Insgesamt geht aus der Tabelle hervor, dass die Berechnung der jeweiligen ROBDDs mit Standardisierung 79,7 Sekunden weniger gedauert hat, was eine Zeiteinsparung von $3$ \% bedeutet. Außerdem wurden 269,1 MB weniger verbraucht, d.\,h. es gab eine Einsparung von 5 \%. Die bessere Performanz ist dadurch zu erklären, dass es weniger redundante Berechnungen gibt bzw. die CT kleiner gehalten wird.
+
+\subsection{Vergleich mit CUDD}
+\label{sec:vglCudd}
+Bei diesem Test wurde die in Kapitel \ref{sec:experimentelleErgebnisse} auf Seite \pageref{sec:experimentelleErgebnisse} vorgestellte CUDD-Bibliothek mit diesem ROBDD-Paket \emph{iBDD} anhand der erwähnten Schaltkreise unter den gleichen beschriebenen Bedingungen verglichen. Die entsprechenden Ergebnisse sind in der nachfolgenden Tabelle \ref{tab:vglCudd} zu finden:
+\begin{table}[bth]
+	\footnotesize
+	\centering
+	\caption{Vergleich mit CUDD}
+	\label{tab:vglCudd}
+	\begin{tabular}{ | l | c | c | c | c | c | c |}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Schaltung}} & \multicolumn{2}{c|}{\textbf{iBDD}} & \multicolumn{2}{c|}{\textbf{CUDD}} & \multicolumn{2}{c|}{~} \\ \hline
+		~ & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{Speicher}} & \multicolumn{1}{c|}{\textbf{CPU-Zeit}} & \multicolumn{1}{c|}{\textbf{MR}} & \multicolumn{1}{c|}{\textbf{TR}}\\ \hline
+		C6288-8 & 23,8 & 0,6 & 6,28 & 0,1 & 3,79 & 6,0 \\ \hline
+		C6288-9 & 33,3 & 2,5 & 19,8 & 0,1 & 13,32 & 25,0 \\ \hline
+		C6288-10 & 60,7 & 8,1 & 32,6 & 0,2 & 1,86 & 40,5 \\ \hline
+		C6288-11 & 142,6 & 34,2 & 80,6 & 0,7 & 1,77 & 48,86 \\ \hline
+		C6288-12 & 455,8 & 148,9 & 182,6 & 2,8 & 2,50 & 53,18 \\ \hline
+		C6288-13 & 1.162,8 & 558,9 & 499,0 & 11,0 & 2,33 & 50,81 \\ \hline
+		C6288-14 & 3.580,1 & 1.779,8 & 1.563,7 & 41,3 & 2,29 & 43,09 \\ \hline
+		C6288-15 & > 11.176,8 & TO & 4.652,0 & 118,9 & > 2,40 & > 15,14 \\ \hline
+		C6288-16 & MO & TO & MO & TO & - & - \\ \hline
+		C17 & 16,3 & 0,1 & 3,2 & 0,1 & 5,09 & 1,0 \\ \hline
+		C432 & 481,1 & 449,8 & 10,9 & 0,1 & 44,14 & 4.498,0 \\ \hline
+		C499 & > 31,2 & TO & 17,0 & 0,1 & > 1,84 & > 18.000,0 \\ \hline
+		C880 & 49,6 & 1369,4 & 83,6 & 0,8 & 0,59 & 1.711,75 \\ \hline
+		C1355 & > 31,9 & TO & 17,0 & 0,1 & > 1,88 & > 18.000,0 \\ \hline
+		C1908 & 43,8 & 478,5 & 16,3 & 0,1 & 2,69 & 4.785,0 \\ \hline
+		C2670 & MO & TO & MO & TO & - & - \\ \hline
+		C3540 & > 1.000,1 & TO & 170,5 & 2,1 & > 476,22 & > 857,14 \\ \hline
+		C5315 & MO & TO & MO & TO & - & - \\ \hline
+		C7552 & MO & TO & MO & TO & - & - \\ \hlineB{3}
+		\multicolumn{1}{|c|}{\textbf{Gesamt}} & > 82.289,9 & > 19.230,8 & > 23.168,3 & > 1.976,3 & > 3,55 & > 9,73\\ \hline
+	\end{tabular}
+\end{table}\\
+Insgesamt fällt bei den Schaltkreisen auf, dass iBDD im Vergleich zu CUDD mehr als 59.121,6 MB benötigt hat, um die dazugehörigen ROBDDs aufzubauen, womit CUDD ca. nur $\frac{1}{3}$ von diesem Speicheraufkommen benötigte. Bei dem Schaltkreis \glqq C880\grqq{} brauchte iBDD jedoch nur rund 50 \% des Speicherplatzes, den CUDD für den ROBDD benutzt hat. Weiterhin fällt auf, dass mit zunehmender Größe der Schaltung das eben genannte Speicherverhältnis von $\frac{1}{3}$ ansonsten gleichbleibend ist. Anders verhält es sich bei der CPU-Zeit, wobei CUDD insgesamt mehr als 17.254,5 Sekunden weniger zum Aufbau der ROBDDs benötigte. Die Zeit, die iBDD dementsprechend -- im Vergleich zu CUDD -- brauchte, um einen ROBDD zu erstellen, entspricht somit dem Faktor $\approx 10$. Diesem Aspekt ist hinzuzufügen, dass sowohl CUDD als auch iBDD mit verschiedenen Schaltkreisen wie z.\,B. \glqq C7552\grqq{} Probleme hatten, die dazugehörigen ROBDDs in der gemessenen Zeit überhaupt aufzustellen. Zudem war zu erkennen, dass der Speicher in diesem Kontext vollständig ausgelastet wurde. Je komplexer der Schaltkreis war, desto größer wurde der Abstand zu CUDD hinsichtlich der CPU-Zeit.\\ 
+Der Grund hierfür liegt wahrscheinlich in der Speicherverwaltung bzw. an der Speicherart von Nachfolgern in der Kollisionskette der UT. Sollte ein Knoten $v$ (siehe Kapitel \ref{sec:knoten} auf Seite \pageref{sec:knoten}) während der Synthese erstellt werden, so gilt der Referenzzähler $1$ und der jeweilige Knoten wird in der UT für einen späteren schnelleren Zugriff gespeichert. Sollte eine Kollision stattfinden, so wird der abzuspeichernde Knoten in einem Vektor des schon vorhandenen Knotens gespeichert. Wird dieser Knoten an anderen Stellen wie z.\,B. $a.low$ verwendet, so wird der Referenzzähler inkrementiert. Wenn eine Formel freigegeben wird, so wird der Referenzzähler bei den damit zusammenhängenden aufgebauten Knoten dekrementiert. Die Frage besteht darin, wann ein Zähler inkrementiert werden muss, was bei CUDD manuell geschieht und anfällig für Fehler ist. Wie bereits erwähnt, funktioniert ein Überladen des Zeigers nicht, da sowohl $a.low$ und $v$ Zeiger sind. Der Referenzzähler kann jedoch dadurch automatisch verwaltet werden, dass der Zeiger in eine Klasse eingehüllt wird und Operationen der Knoten darüber abgefragt werden. Diese Variante ist weniger fehleranfällig, wobei ebenfalls die Annahme getroffen wurde, dass das Finden eines Knotens in dem Vektor aufgrund des Lokalitätsprinzips schneller funktioniert, da der nächste Block darin gleichzeitig mit in den Cache geladen wird.\\
+Allerdings sind die Operationen \textit{Einfügen} und \textit{Löschen} beim Vektor problematisch, weil diese -- im Gegensatz zu einer verketteten Liste -- einen linearen Aufwand erfordern, was während des Prozesses langsamer ist. Bezüglich dem Prozess muss zusätzlich der interne Speicher betrachtet werden. Ein Prozess verwaltet seinen Speicher selber. Sollte  nicht mehr genug prozessinterner freier Speicher verfügbar sein, so wird dieser vom Betriebssystem (OS) explizit angefordert und ein Verweis darauf zurückgegeben. Ein OS wie bspw. Linux bietet mithilfe des Buddy-Algorithmus nur Blöcke der Größe $2^k$ an \cite{s2008}. Dies wird vor allem deshalb derartig realisiert, um die externe Fragmentierung zu reduzieren und das Verschmelzen von Speicherblöcken zu vereinfachen. Wenn ein Knoten $22$ Bytes benötigt und es ist kein prozessinterner freier Speicher mehr verfügbar, muss die Anwendung daher einen Speicherblock allokieren. In diesem Fall würden dann $2^5=32$ Bytes reserviert werden, wobei eine interne Fragmentierung von $10$ Bytes besteht. Wenn die Anwendung nun mit Millionen von Knoten arbeitet, so würde nicht nur die interne Fragmentierung weiter ansteigen, sondern es gibt auch eine Erhöhung der Cache-Misses, da aufgrund des zufälligen Zugriffsmusters Knoten verteilt auf dem Hauptspeicher (DRAM) liegen.
