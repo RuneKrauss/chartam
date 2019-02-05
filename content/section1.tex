@@ -1,421 +1,1786 @@
 \newpage
-\section{Grundlagen}
-\label{sec:bdd_grundlagen}
-Wie bereits in der Einleitung auf Seite \pageref{sec:einleitung} erwähnt, gibt es viele verschiedene Möglichkeiten, Boolesche Funktionen zu repräsentieren. Mithilfe von BDDs können Boolesche Funktionen effizient dargestellt werden. So können sie z.\,B. dazu eingesetzt werden, um große Primimplikantenmengen (siehe Kapitel \ref{sec:bAusdruecke} auf Seite \pageref{sec:bAusdruecke}) unter Verwendung der charakteristischen Funktion effizient darzustellen \cite[S.106-108]{ms1999}. Im Gegensatz dazu sind Normalformen wie bspw. die DNF oder KNF in der Praxis nur für sehr wenige Eingänge einsetzbar, da sehr viel Speicherplatz benötigt wird (siehe Kapitel \ref{sec:dnfknf} auf Seite \pageref{sec:dnfknf}). Formeln in KNF oder DNF lassen sich direkt in Second-Level Schaltungen realisieren, BDDs sind ein Beispiel für mehrstufige Schaltkreise (siehe Kapitel \ref{sec:bdd} auf Seite \pageref{sec:bdd}) bzw. eine Datenstruktur für Logiksynthese und Verifikation, womit Entscheidungs- bzw. Berechnungsprobleme wie der Äquivalenztest oder die Synthese (siehe Kapitel \ref{sec:verifikation} ab Seite \pageref{sec:verifikation}) effizient lösbar sind.\\
-Die Grundfrage ist dabei, welche Anforderungen an Datenstrukturen für Boolesche Funktionen gestellt werden. Bei der Verifikation bspw. soll für einen Schaltkreis überprüft werden, ob er eine gewünschte Funktion realisiert, die ebenfalls durch eine Spezifikation gegeben ist. Für beide Funktionen kann nun ein BDD berechnet werden, inklusive einer anschließenden Überprüfung auf Äquivalenz, wobei dieses Vorgehen -- wie auch der Tautologietest -- im Allgemeinen für Formeln als auch Schaltkreise co-NP-vollständig ist \cite[S.6]{s2007}. Die Erwartungshaltung sollte daher sein, dieses Verfahren für praktisch relevante Funktionen effizient durchführbar zu gestalten.\\
-Insgesamt gesehen werden also viele verschiedene Anforderungen an Boolesche Funktionen gestellt, wobei die wichtigsten Operationen in Kapitel \ref{sec:operationen} ab Seite \pageref{sec:operationen} diskutiert werden.
+\section{Compiler Phases}
+\label{sec:compiler_phases}
 
-\subsection{Formale Definitionen}
-\label{sec:formal}
-In dieser Arbeit werden verschiedene Operationen in Bezug auf Entscheidungs- bzw. Berechnungsprobleme algorithmisch realisiert als auch die Größenordnung der Rechenzeit angegeben, wobei ein Algorithmus die Beschreibung einer Methode zur Lösung eines Problems kennzeichnet. Die Fälle umfassen dabei den Worst-, Best- und Average Case.\\ Hierzu wird die sog. \emph{asymptotische Komplexität} benutzt, die den Aufwand in Abhängigkeit von der Größe der Eingabe angibt. Sei hierzu also $f : \mathbb{N} \rightarrow \mathbb{R}_0^+$ eine Funktion. Die Ordnung von $f$ ist die Menge $O(f(n)) = \{ t : \mathbb{N} \rightarrow \mathbb{R}_0^+ \mid \exists c \in \mathbb{R}^+ \exists n_0 \in \mathbb{N} \forall n \geq n_0 : t(n) \leq c \cdot f(n) \}$, die das Wachstum von $f$ charakterisiert, d.\,h. sie enthält alle Funktionen, deren Graph maximal so stark wächst wie der Graph von $f$. Es wird dabei im Wesentlichen die Zeitkomplexität (Anzahl der benötigten Programmschritte) betrachtet, da sie unmittelbar eine obere Schranke für die Platzkomplexität (Größe des benötigten Speicherplatzes) impliziert \cite[S.118]{mt1998}.
-Eine Menge $M \subseteq \mathbb{R}$ heißt nach oben beschränkt, falls es ein $K \in \mathbb{R}$ gibt, sodass $x \leq K \forall x \in M$. $K$ heißt \emph{obere Schranke} von $M$. Die kleinste obere Schranke von $M$ wird als \emph{Supremum} bezeichnet. $M \subseteq \mathbb{R}$ heißt wiederum \emph{nach unten beschränkt}, falls es ein $k \in \mathbb{R}$ mit $x \geq K \forall x \in M$ gibt. Dabei wird $k$ als \emph{untere Schranke} von $M$ bezeichnet. Die kleinste untere Schranke von $M$ heißt \emph{Infimum}.\\
-Allgemein betrachtet ist ein Entscheidungsproblem eine Abbildung $D : IN \rightarrow BOOL$. $D$ heißt \emph{entscheidbar}, falls eine Turingmaschine (TM) existiert, sodass sie in einem Endzustand stoppt, falls $D(x)=JA$, wobei $x \in IN$. Ansonsten hält sie in einem Nicht-Endzustand.\\
-Es gilt $D \in NP$, falls die TM Polyzeit-beschränkt und nichtdeterministisch ist, d.\,h. es können zu jedem Berechnungszustand mehrere Folgezustände existieren. Sollte die TM Polyzeit-beschränkt und deterministisch sein, so gilt $D \in P$. $P$ und $NP$ kennzeichnen diesbezüglich Komplexitätsklassen. Viele Probleme sind darüber hinaus nicht nur in NP, sondern auch NP-hart, wodurch NP-Vollständigkeit gekennzeichnet ist. $D$ heißt NP-hart, falls $D' \geq_p D \forall D' \in NP$, wobei $\geq_p$ eine Polynomialzeitreduktion kennzeichnet. Es gilt also $D' \geq_p D$, falls es eine totale berechnende Funktion $trans : IN' \rightarrow IN$ mit polynomiell beschränkter Berechnungslänge gibt, sodass $D'(x)=JA \Leftrightarrow D(trans(x))=JA$. Es werden also alle Ja- bzw. Nein-Instanzen auf das andere Problem bei einer Reduktion abgebildet. Intuitiv gesagt sind Probleme, die NP-vollständig sind, wahrscheinlich nicht effizient lösbar.\\
-Entscheidbarkeit ist weiterhin ein Spezialfall von Berechnungsproblemen, die als Funktionen $\mathbb{N}^k \rightarrow \mathbb{N}$ ($k$ sei die Stelligkeit) kodiert werden, wobei die Ausgabe eine Menge von Objekten ist.
-
-\subsubsection{Boolesche Funktionen}
-\label{sec:bFunktionen}
-Sei $f \subseteq N \times M$ eine \emph{Relation}. Dann heißt $f$, falls $\forall x \in N, y,z \in M (x,y) \in f \wedge (x,z) \in f \Rightarrow y = z$ rechtseindeutig und $\forall x \in N \exists y \in M : (x,y) \in f$ linkstotal ist, \emph{Abbildung} von $N$ nach $M$. $N$ kennzeichnet die Quell- und $M$ die Zielmenge der Abbildung. Die Abbildung $f$ heißt \emph{injektiv}, falls $\forall x,y \in N : f(x) = f(y) \Rightarrow x = y$ und \emph{surjektiv}, falls $\forall y \in M \exists x \in N : f(x) = y$ besteht. Gelten beide Eigenschaften, so wird die Abbildung als \emph{bijektiv} bezeichnet. Sei $A \subseteq N$, dann heißt $f(A) = \{ f(x) \mid x \in A \}$ \emph{Bild} von $A$. Ist $B \subseteq M$, dann heißt $f^{-1}(B) = \{ x \in N \mid f(x) \in B \}$ \emph{Urbildmenge} von $B$.\\
-Abbildungen $f: \{0, 1\}^n \rightarrow \{0, 1\}^m$ ($n,m \in \mathbb{N}$) werden als \emph{Boolesche Funktionen} bezeichnet. Für die Eigenschaften gilt:
-\begin{itemize}
-	\item $(\mathbb{B}^n, f)$ heißt \emph{vollständig}, gdw. $f$ surjektiv ist.
-	\item $(\mathbb{B}^n, f)$ heißt \emph{eindeutig}, gdw. $f$ injektiv ist.
-	\item $(\mathbb{B}^n, f)$ heißt \emph{kanonisch}, gdw. $f$ bijektiv ist.
-	\item $(\mathbb{B}^n, f)$ heißt \emph{operationell abgeschlossen}, gdw. $\forall a,b \in \mathbb{B}^n$ $\exists$ Darstellungen $u,v,w \in \mathbb{B}^n$ mit
-	\begin{itemize}
-		\item $f(u) = f(a) \cdot f(b)$
-		\item $f(v) = f(a) + f(b)$
-		\item $f(w) = f(a)'$
-	\end{itemize}
-\end{itemize}
-$\mathbb{B}_{n,m}$ beschreibt die Menge aller Booleschen Funktionen von $\mathbb{B}^n \rightarrow \mathbb{B}^m$. Eine Abbildung $f : D \rightarrow \mathbb{B}^m, D \subset \mathbb{B}^n$ heißt \emph{(partielle) Boolesche Funktion} in $n$ Variablen. Sei $m=1$, dann gilt $ON(f) := \{ x \in \{0,1 \} \mid f(x) = 1 \}$ (Erfüllbarkeitsmenge) und $OFF(f) := \{ x \in \{0,1 \} \mid f(x) = 0 \}$ (Nichterfüllbarkeitsmenge). Ist $f$ eine partielle Boolesche Funktion, so bezeichnet $def(f) := \{ x \in \{ 0, 1 \}^n \mid f(x) \text{ definiert}\}$ den \emph{Definitionsbereich} von $f$. Hingegen kennzeichnet $dc(f) := \{ x \in \{ 0, 1 \}^n \mid f(x) \text{ nicht definiert}\}$ den \emph{don't care-Bereich} von $f$.\\
-Weiterhin werden Boolesche Funktionen $f \in \mathbb{B}_{n,m}$ als $m$-dimensionale Vektoren \\$(f_1, \dots, f_m)$ Boolescher Funktionen $f_i \in \mathbb{B}_n, 1 \leq i \leq m$ aufgefasst.\\
-Eine Boolesche Funktion $f(x_1, \dots, x_n)$ heißt genau dann \emph{symmetrisch}, wenn der Funktionswert durch einen Vektor $w = (w_0, \dots, w_n), w_i \in \{ 0,1 \}$ angegeben werden kann, wobei $w_i = 1 \Leftrightarrow f(a_1, \dots, a_n) = 1$ und $|\{a_j, j =1 \dots n : a_j = 1 \}| = i$. Der Funktionswert ist also nur von der Anzahl der Einsen im Argument, nicht aber von deren Position abhängig.\\
-Hinsichtlich der Eigenschaften gibt es insgesamt $2^{m \cdot 2^n}$ Boolesche Funktionen in $B_{n,m}$ und $2^{2^n}$ Boolesche Funktionen in $\mathbb{B}_n$, wobei wenige davon -- die wenigstens $2^{n-1}$ Bits zur Darstellung in einer beliebigen Form benötigen -- exponentiell gegen $1$ für $n \rightarrow \infty$ konvergieren \cite[S.17]{h2002}. Es kann also nur erreicht werden, dass möglichst viele praktisch relevante Funktionen kompakt darstellbar sind (siehe Kapitel \ref{sec:bdd_grundlagen} auf Seite \pageref{sec:bdd_grundlagen}).
-\subsubsection{Boolesche Ausdrücke}
-\label{sec:bAusdruecke}
-Boolesche Funktionen können in Form von \emph{Booleschen Ausdrücken} dargestellt werden, die auf den Regeln der \emph{Booleschen Algebra} basieren. Sei hierzu $M$ eine endliche Menge, auf der zwei binäre Operationen $\cdot, +$ und eine unäre Operation $\sim$ definiert sind. Das Quadrupel $(M, \cdot, +, \sim)$ heißt Boolesche Algebra, falls $\forall x, y, z \in M$ die folgenden Axiome gelten:
-\begin{itemize}
-	\item Kommutativität: $x+y = y+x$ sowie $x \cdot y = y \cdot x$
-	\item Assoziativität: $x+(y+z) = (x+y)+z$ sowie $x\cdot(y\cdot z) = (x \cdot y) \cdot z$
-	\item Distributivität: $x + (y \cdot z) = (x+y) \cdot (x+z)$ sowie $x \cdot (y+z) = (x \cdot y) + (x \cdot z)$
-	\item Absorption: $x+(x \cdot y) = x$ sowie $x \cdot (x+y) = x$
-	\item Auslöschung: $x+(y\cdot \sim y) = x$ sowie $x \cdot(y+\sim y) = x$
-\end{itemize}
-Viele weitere Gesetze wie bspw. die \emph{De Morganschen Gesetze} $~(x+y) = \sim x \cdot \sim y$ sowie $\sim(x \cdot y) = \sim x + \sim y$ sind zudem aus diesen Axiomen ableitbar.\\
-Auf Basis dieser Regeln können nun Boolesche Ausdrücke definiert werden. Sei hierzu $A = X_n \cup \{ 0, 1, +, \cdot, \sim, (,) \}$ ein Alphabet, wobei $X_n = \{ x_1, \dots, x_n \}$ und $n \in \mathbb{N}$ gilt. Die Menge $BE(X_n)$ ist eine Teilmenge von $A^*$, die wie folgt induktiv definiert ist:
-\begin{itemize}
-	\item $0, 1, x_1, \dots, x_n$ sind Boolesche Ausdrücke.
-	\item Sind $g$ und $h$ Boolesche Ausdrücke, so auch die Disjunktion ($+$ bzw. $\vee$), Konjunktion ($\cdot$ bzw. $\wedge$) und Negation $(\sim bzw. \neg)$.
-\end{itemize}
-Darüber hinaus gilt $\vee < \wedge < \neg$, d.\,h. z.\,B. hat die Negation eine höhere Präzedenz als die Konjunktion. Boolesche Ausdrücke sind eine vollständige Darstellung von $\mathbb{B}_n$, jedoch sind sie nicht eindeutig. Jedem Booleschen Ausdruck kann ein \emph{Operatorbaum} (siehe Abbildung \ref{fig:obaum}) zugeordnet werden, der zu jedem Ausdruck angibt, wie er korrekt ausgewertet werden kann:
 \begin{figure}[bth]
 	\centering
-	\includegraphics[scale=0.5]{./img/obaum}
-	\caption[Operatorbaum für $(x_1\neg x_2)+(\neg x_1x_2)$]{Operatorbaum für $(x_1\neg x_2)+(\neg x_1x_2)$}
-	\label{fig:obaum}
-\end{figure}\\
-\noindent
-Bezüglich der Interpretation Boolescher Ausdrücke definiert also jeder Ausdruck eine Boolesche Funktion $\gamma : BE(X_n) \rightarrow \mathbb{B}_n$, wobei $\gamma(0) = 0$ sowie $\gamma(1) = 1$, d.\,h. $\forall x \in \mathbb{B}^n$ gilt:
-\begin{itemize}
-	\item $\gamma((g + h)) = \gamma(g) + \gamma(h)$
-	\item $\gamma((g \cdot h)) = \gamma(g) \cdot \gamma(h)$
-	\item $\gamma((\sim g)) = \sim \gamma(g)$
-\end{itemize}
-Die Booleschen Ausdrücke $x_i, x_i'$ heißen \emph{Literale}. Ein \emph{Monom} ist eine Konjunktion von Literalen und wird als \emph{Minterm} $m$ bezeichnet, falls $m(a) = \prod_{i=1}^{n}x_i^{a_i}$, wobei $a \in \mathbb{B}^n$. Die Disjunktion von paarweise verschiedenen Monomen wird als \emph{Polynom} bezeichnet, d.\,h. $f = \sum_{a \in ON(f)}m(a)$, wobei $a \in \mathbb{B}^n$. Die primären Kosten sind gleich der Anzahl der Monome in $f$. Die sekundären Kosten hingegen sind gleich der Anzahl der Literale in Addition zu der Anzahl der Monome in $f$. Ein \emph{Implikant} einer Booleschen Funktion $g$ ist ein Monom $q$ mit $\gamma(q) \leq g$ und ein \emph{Primimplikant} von $g$ ist ein maximaler Implikant $g$, d.\,h. er ist in keinem anderen Implikanten vollständig enthalten. Zwei Boolesche Ausdrücke $e_1, e_2$ sind darüber hinaus äquivalent, wenn $\gamma(e_1) = \gamma(e_2)$ gilt.
-\subsubsection{Disjunktive und konjunktive Normalform}
-\label{sec:dnfknf}
-Die DNF bzw. KNF repräsentieren eine Boolesche Funktion $f \in \mathbb{B}_n$ als Summe von Produkten bzw. Produkt von Summen mittels $f(x) = \bigvee_{a \in f^{-1}(1)}m_a(x)$ respektive\\ $\bigwedge_{a \in f^{-1}(0)}s_a(x)$, wobei $s_a(x) = \bigvee_{i=1}^n x_i^{\overline{a_i}}$ (Maxterm) und $m_a(x) = \bigwedge_{i=1}^n x_i^{a_i}$ (Minterm). Die DNF ist kanonisch durch die Disjunktion aller Minterme. Hingegen wird die KNF durch die Konjunktion aller Maxterme als kanonisch bezeichnet. Diesbezügliche Beispiele sind im Zusammenhang mit BDDs in Kapitel \ref{sec:beispiele} auf Seite \pageref{sec:beispiele} zu finden.\\
-Es sei erwähnt, dass durch diese Darstellung einige Nachteile auftreten. So haben viele intuitiv einfache Boolesche Funktionen, wie etwa die Paritätsfunktion $f_n = x_1 \oplus x_2 \oplus \dots \oplus x_n$ auf $n$ Variablen, damit eine exponentielle Darstellung. Diese symmetrische Funktion liefert $1$, wenn eine ungerade Anzahl von Eingängen den Wert $1$ besitzen, ansonsten gibt sie $0$ zurück. Hinsichtlich der Darstellung als DNF/KNF würde es $2^{n-1}$ Min- bzw. Maxterme geben \cite[S.21]{h2002}.
-
-\subsubsection{Wahrheitstafeln}
-\label{sec:wahrheitstafeln}
-Ein Bitstring $b[0 : 2^n - 1]$ kann durch die Boolesche Funktion $f(b)(x) = b \left[ \sum_{i=0}^{n-1} x_i 2^i \right] \forall x \\\in \mathbb{B}^n]$, wobei $f(b) \in \mathbb{B}_n$, interpretiert werden. Dieser Bitstring heißt \emph{Wahrheitstafel} der Booleschen Funktion $f(b)$. Bitstrings der Länge $2^n$ sind zusammen mit dieser Interpretation als Boolesche Funktionen kanonische Darstellungen von $\mathbb{B}_n$. Im Zusammenhang mit BDDs ist ein Beispiel dazu in Kapitel \ref{sec:beispiele} auf Seite \pageref{sec:beispiele} ersichtlich.
-
-\subsubsection{Schaltkreise}
-\label{sec:schaltkreise}
-Jedem Schaltkreis eine Boolesche Funktion zugeordnet werden, was auch umgekehrt gilt \cite{r2007}. Die Berechnung einer solchen Funktion wird als \emph{Simulation} bezeichnet, was in Kapitel \ref{sec:verifikation} auf Seite \pageref{sec:verifikation} beim Äquivalenztest demonstriert wird. Ein \emph{Schaltkreis} oder \emph{logisches Netzwerk} $SK = (X_n, G, typ, in, out, Y_m)$ ist ein gerichteter Graph über $STD := \{ \neg, \wedge, \vee, \oplus, \Leftrightarrow, NAND, NOR \}$, wobei:
-\begin{itemize}
-	\item $G=(V, E)$ zykelfrei
-	\item $X_n := (x_1, \dots, x_n)$ primäre Eingänge
-	\item $Y_m := (y_1, \dots, y_m)$ primäre Ausgänge
-	\item $in : V \backslash S \rightarrow S^*, in(m) \in S^{indeg(m)}$ Eingänge
-	\item $out : V \backslash S \rightarrow S^*, out(m) \in S^{outdeg(m)}$ Ausgänge
-	\item $(\{ 0,1 \} \cup X_n \cup Y_m) \subset V$ konstante Signale
-\end{itemize}
-Die Kosten entsprechen der Anzahl der Modulknoten $C(SK)$ und die Tiefe  $depth(SK)$ wird durch die Anzahl der Modulknoten auf dem längsten Pfad von einem primären Eingang zu einem primären Ausgang beschrieben. Die Darstellung über logische Netzwerke ist vollständig, aber nicht eindeutig.\\
-Ein \emph{Pfad} bzw. \emph{Weg} von $v$ nach $v'$ der Länge $n$ ($n \in \mathbb{N}$) in $G$ ist eine alternierende Knoten-Kanten-Folge $p = v_0e_1v_1e_2\dots e_nv_n$ mit:
-\begin{itemize}
-	\item $v_0, \dots, v_n \in V$
-	\item $e_1, \dots, e_n \in E$
-	\item $v = v_0$
-	\item $v' = v_n$
-\end{itemize}
-Insbesondere sei noch einmal hervorgehoben, dass der Schaltkreis kreisfrei ist, d.\,h. es gilt zusätzlich $v_0 \neq v_n$. In Kapitel \ref{sec:bdd} auf Seite \pageref{sec:bdd} sind diesbezüglich Beispiele in Form von Multiplexern zu finden.
-\subsubsection{Binäre Entscheidungsdiagramme (BDDs)}
-\label{sec:bdd}
-Ein \emph{BDD} ist ein gerichteter, azyklischer Graph bzw. Baum $G = (V \cup \Phi \cup \{1\},E)$, der eine Boolesche Funktion repräsentiert sowie kreisfrei und zusammenhängend ist. Seine Knoten sind in drei Untermengen unterteilt. $V$ ist die Menge aller internen Knoten. Diese Knoten haben je zwei ausgehende Kanten. Jeder Knoten $v \in V$ besitzt eine Bezeichnung $l(v) \in S_F$, wobei $S_F = \{x_1, \dots, x_n\}$ die Menge der Variablen ist, von denen $f$ abhängt. $|f|$ kennzeichnet die Knotenanzahl unterhalb von $f$, $f'$ sei die Negation von $f$. Das $1$-Blatt ist der Endknoten, das keine ausgehenden Kanten besitzt. $\Phi$ ist die Menge der Funktionsknoten, die in einer eindeutigen Beziehung zu den Komponenten von $f$ stehen. Diese haben keine eingehenden Kanten und je nur eine ausgehende Kante. Die ausgehenden Kanten von den Funktionsknoten können die Eigenschaft des Komplements besitzen. Die ausgehenden Kanten von einem internen Knoten werden mit $t$ und $e$ (komplementierend) bezeichnet. Mit dem \emph{Tripel} $(l(v), t, e)$ wird ein interner Knoten und seine beiden ausgehenden Kanten bezeichnet, wobei $l(v)$ die \emph{Entscheidungsvariable} darstellt. Dieses bestimmt dabei $f$ eindeutig. Die \emph{top-Variable} eines Knotens $f$ sei die Variable, nach der $f$ zerlegt wurde. Wird eine Menge von Knoten betrachtet, so ist sie das Minimum der top-Variablen der einzelnen Knoten, d.\,h. $top(l(v), t, e) = min \{ top(f), top(t), top(e) \}$. Der Knoten zur eigentlichen Repräsentation wird \emph{Formel} genannt. Die Variablen in $S_F$ sind geordnet. Ist der Knoten $v_j$ ein Nachfolger des Knotens $v_i$, dann ist $l(v_i) < l(v_j)$. Für die repräsentierte Funktion gilt:
-\begin{enumerate}
-	\item Die Funktion des Endknotens ist die konstante Funktion $1$.
-	\item Ist die Kante kein Komplement, so ist die Funktion einer Kante die Funktion des Knotens, auf den sie zeigt. Ansonsten ist die Funktion der Kante das Komplement der Funktion des Zielknotens.
-	\item Die Funktion eines internen Knotens $v \in V$ ist gegeben durch $(l(v) \wedge f_t) \vee (\neg l(v) \wedge f_e)$ (Shannon-Zerlegung), wobei $f_t, f_e$ die Funktionen der Kanten $(t, e)$ von $v$ sind. Die Funktion wird also mit Kofaktoren dargestellt.
-	\item Die Funktionen des Funktionsknotens $\phi \in \Phi$ ist die Funktion der davon ausgehenden Kante.
-\end{enumerate}
-Wichtige Komplexitätsmaße für BDDs sind die Größe, d.\,h. die Anzahl der inneren Knoten sowie die Tiefe zur Kennzeichnung des längsten Pfades von der Wurzel zu einem Blatt.\\
-BDDs lassen sich weiterhin unmittelbar durch ein Multiplexer-Netzwerk (Selektionsschaltungen) realisieren \cite{adk1991}. Dabei wird ein BDD $1:1$ in Schaltungsstrukturen umgesetzt, die aus $2:1$-Multiplexern bestehen, was die Abbildung \ref{fig:bddToMux} zeigt:
-\begin{figure}[bth]
-	\centering
-	\includegraphics[scale=0.4]{./img/mux}
-	\caption[BDD zu Multiplexer]{BDD zu Multiplexer \cite[S.46]{h2002}}
-	\label{fig:bddToMux}
+	\includegraphics[scale=0.5]{./img/compiler_phases}
+	\caption[Compiler phases]{Compiler phases}
+	\label{fig:compiler_phases}
 \end{figure}
 \noindent
-Jeder Knoten steht für einen Multiplexer, wobei sie mittels einem Bottom-up Verfahren erzeugt werden. An der Wurzel ist demnach der Ausgang zu finden.\\
-Allgemein schalten Multiplexer von vielen Eingängen auf einen Ausgang, d.\,h. es wird $mux_n : \mathbb{B}^{2n+1} \rightarrow \mathbb{B}^n$ berechnet, wobei:\\
-$mux_n(a_{n-1}, \dots, a_0, b_{n-1}, \dots, b_0, x_i) = \begin{cases}(a_{n-1} \dots a_0)& x_i = 1 \\ (b_{n-1} \dots b_0) & x_i = 0 \end{cases}$\\
-Die Kosten betragen $C(mux_n) = 3n+1$, für die Tiefe gilt $depth(mux_n) = 3$.\\
-Kaskadierte $2:1$-Multiplexer mit $n$ Variablen an den Auswahl- oder Adresseingängen können zudem zu einem Multiplexer mit $n$ Adresseingängen und $2^n$ Dateneingängen zusammengefasst werden. Dieser entspricht einem Nur-Lese-Speicher (ROM) mit $2^n$ Bits, was eine Grundstruktur der Zellen von Field Programmable Gate Arrays (FPGAs) kennzeichnet, welche programmierbare integrierte Schaltungen (ICs) darstellen.\\
-Unter bestimmten Voraussetzungen -- die nachfolgend (siehe Kapitel \ref{sec:ordnung} ab Seite \pageref{sec:ordnung}) genauer beschrieben werden -- sind BDDs kanonisch, d.\,h. dass die Repräsentation einer gegebenen Funktion eindeutig ist.
-\subsection{Beispiele zu Darstellungen Boolescher Funktionen}
-\label{sec:beispiele}
-Nachfolgend zeigt die Abbildung \ref{fig:operations} nun Beispiele bekannter Boolescher Operationen $x_1 \wedge x_2$, $x_1 \vee x_2$ und $x_1 \oplus x_2$:
+
+The figure \ref{fig:compiler_phases} shows the compilation process which starts with the input of a \emph{source program}. The program must be written in \emph{E}. 
+
+The lexical, syntax and context analysis are a part of the analysis phase. This is primarily about the properties of the source program. The \emph{lexical analysis} is about recognizing words (see chapter \ref{sec:lexical_analysis} on page \pageref{sec:lexical_analysis}). The \emph{syntax analysis} then builds a logical structure of the lexemes (see chapter \ref{sec:syntactic_analysis} on page \pageref{sec:syntactic_analysis}). The \emph{context analysis}, on the other hand, includes e.g. a type test. The result is then a syntax graph. During these phases, \emph{errors} are always handled. Accordingly, the system checks, for example, whether a variable was used before the definition. The \emph{global optimization} makes an optimization on the source text. Thus e.g. isomorphies are summarized in the code.
+
+The \emph{code generation} represents the synthesis. The structure of the source program already exists there. The synthesis consists of three components: 
+\begin{itemize}
+	\item \textbf{Allocation}: The available components like a Graphics Processing Unit (GPU) are selected.
+	\item \textbf{Binding}: The specific functions are mapped to the components.
+	\item \textbf{Control flow}: The chronological sequence of the commands is displayed.
+\end{itemize}
+It generates assembler instructions and is therefore dependent on the respective instruction set of the processor. This refers, for example, to the allocation of registers which is generally NP complete \cite{bdr2006}, i.e. there are only runtime-intensive algorithms for an exact solution. Moreover, hashtables are used for quick access to identifiers or strings. \emph{Local optimization} is again based on basic blocks. These start with the entry into a control flow and end with the exit. However, they do not include jumps. More about this topic can be found in chapter \ref{sec:code_generation} on page \pageref{sec:code_generation}. The main goal here is to rearrange commands. The bytecode for the source language \emph{E} then results.
+
+Altogether, there is a difference between runtime and compile time which is shown in the tombstone diagram\footnote{Tombstone diagram, \url{http://www.informatik.uni-bremen.de/agbkb/lehre/uebersetzer/Kopien/BootstrapWatt.pdf}} \ref{fig:compile_time_runtime}:
+
 \begin{figure}[bth]
 	\centering
-	\includegraphics[scale=0.6]{./img/bdds}
-	\caption[BDDs von bekannten Operationen]{BDDs von bekannten Operationen}
-	\label{fig:operations}
-\end{figure}\\
-\textbf{Hinweis}: Zur Vereinfachung wurde der Startknoten $f$ weggelassen. Eine gestrichelte Linie entspricht der Kante $e$, eine durchgezogene Linie kennzeichnet hingegen die Kante $t$. Die ausgefüllten Kreise stehen wiederum für Output-Inverter hinsichtlich komplementärer Kanten, die in Kapitel \ref{sec:complementEdges} auf Seite \pageref{sec:complementEdges} beschrieben werden.\\
-\\Um den Funktionswert zu einer gegebenen Variablenbelegung zu finden, muss (ausgehend vom Wurzelknoten) jedem Variablenknoten der $t$-Kante gefolgt werden, wenn die Variable den Wert $1$ hat, ansonsten der $e$-Kante, was einen Weg kennzeichnet (siehe Kapitel \ref{sec:schaltkreise} auf Seite \pageref{sec:schaltkreise}).\\
-Wie bereits in der Definition \ref{sec:bdd} auf Seite \pageref{sec:bdd} erwähnt -- was hier gut zu beobachten ist -- gilt auch die Kreisfreiheit sowie der Zusammenhang, da $\exists$ ein Weg von $v$ nach $v'$ für je zwei Knoten $v, v' \in V$. Der erreichte Endknoten gibt dann den jeweiligen Funktionswert an. Letztendlich resultiert durch die Iteration eine sog. Wahrheitstafel (siehe Kapitel \ref{sec:wahrheitstafeln} auf Seite \pageref{sec:wahrheitstafeln}), die folgende Tabelle \ref{tab:wtabelle} darstellt:
+	\includegraphics[scale=0.5]{./img/compile_time_runtime}
+	\caption[Compile time and runtime]{Compile time and runtime}
+	\label{fig:compile_time_runtime}
+\end{figure}
+\noindent
+
+The compile time refers to the compiler phases (see figure \ref{fig:compiler_phases} on page \pageref{fig:compiler_phases}). The language \emph{E} is transformed by a host (H) to bytecode. The execution also happens there. The bytecode can then be interpreted at runtime where it is located in the Java Virtual Machine (JVM). Therefore it is also possible to generate code for different central processing units (CPU) like PowerPC or x86. However, the code can also be translated on a different architecture and then executed elsewhere. Accordingly, retargeting and rehosting are supported.
+
+In the following, the respective components of the compiler will be explained. The following folder structure regarding the architecture is used as help:
+
+\begin{verbatim}
+e
+   io
+   ...
+   std
+   ...
+   test
+      main.e
+grammar
+   E.g4
+lib
+   antlr.jar
+   jasmin.jar
+src
+   main
+      java
+         com
+            runekrauss
+               compiler
+                  CustomType.java
+                  CustomTypeVisitor.java
+                  DataType.java
+                  DataTypeStack.java
+                  EVisitor.java
+                  FunctionDefinitionVisitor.java
+                  FunktionPrototype.java
+                  FunctionPrototypeList.java
+                  Main.java
+                  StaticVariableVisitor.java
+                  TypeInformation.java
+                  exception
+                     AlreadyDefinedFunctionException.java
+                     ...
+                     UndeclaredVariableException.java
+                     ...
+                     WrongDataTypeException.java
+               parser
+                  E.tokens
+                  ...
+                  EBaseVisitor.java
+                  ELexer.java
+                  EParser.java
+                  EVisitor.java
+      resources
+         assembly
+            inline_asm.e
+            ...
+         branch
+         comments
+         function
+         loop
+         operators
+         ...
+   test
+      java
+         com
+            runekrauss
+               compiler
+                  CompilerTest.java
+pom.xml
+target
+README.md
+...
+\end{verbatim}
+
+The folder \emph{grammar} contains the defined grammar with the parser and lexer rules. In the folder \emph{lib} you can also find the used libraries for ANTLR and Jasmin (see chapter \ref{sec:code_generation} on page \pageref{sec:code_generation}). In summary, a Maven\footnote{Maven, \url{https://maven.apache.org}} project is used where these are listed as dependencies in the \emph{pom.xml} (see appendix on page \pageref{sec:maven}). The actual source files are divided into the folders \emph{compiler} and \emph{parser}. The \emph{compiler} folder contains the defined logic for traversing the tree with code generation (see chapter \ref{sec:context_analysis} on page \pageref{sec:context_analysis}) and the start method for starting a file such as \emph{main.e} written in the language \emph{E}. The folder \emph{e} also contains the standard library of the language that can be imported. The \emph{exception} package contains error classes for incorrect use of the described constructs regarding the context analysis of language \emph{E}. For example, a message is generated when a variable is used although it has not yet been declared. Another example would be that an error message appears when a function is defined twice or if a data type is not compatible with an operation. In the \emph{parser} folder there is a lexer and a parser to make analyses. The recognized tokens can also be found there. The unit and integrations tests can be found in the \emph{test} folder (see chapter \ref{sec:tests} on page \pageref{sec:tests}). The respective tests also read test files from the \emph{resources} folder if the corresponding source code is relatively long. Among other things, this refers to the tests for functions, branches, loops and operators. The respective compilates are created in the \emph{target} folder.
+
+\textbf{Note}: For a better overview, several comments have been removed in the codes. However, these are visible in the \emph{E Compiler}\footnote{E Compiler, \url{https://github.com/RuneKrauss/eCompiler}} as a Maven project. The current description of the installation of the compiler is shown in the respective \emph{README.md}.
+
+\subsection{Lexical analysis}
+\label{sec:lexical_analysis}
+
+Generally speaking, lexical analysis creates lexemes from source code. The scanner is responsible for recognizing lexemes. The screener, on the other hand, performs actions after recognition. This includes e.g. removing comments. Each lexeme consists of one or more characters. These include, for example, printable characters such as letters or numbers but also control characters such as tab stops. The encoding of the characters is limited to American Standard Code for Information Interchange (ASCII). The code can be found in the appendix on page \pageref{sec:ascii}.
+
+The lexical analysis is done with finite automata, i.e. the lexemes are described by regular expressions.
+
+\begin{defi}[Deterministic finite automaton]
+	A deterministic finite automaton (DFA) is a 5-tuple, $(Q, \Sigma, \delta, q_0, F)$, consisting of a finite set of states $Q$, a finite set of input symbols called the alphabet $\Sigma$, a transition function $\delta : Q \times \Sigma \rightarrow Q$, an initial or start state $q_0 \in Q$ and a set of accept states $F \subseteq Q$.
+\end{defi}
+
+\begin{defi}[Nondeterministic finite automaton]
+	A nondeterministic finite automaton (NFA) is represented by a 5-tuple, $(Q, \Sigma, \Delta, q_0, F)$, consisting of a finite set of states $Q$, a finite set of input symbols $\Sigma$, a transition relation $\Delta : Q \times \Sigma \rightarrow P(Q)$, an initial state $q_0 \in Q$ and a set of states $F$ distinguished as accepting or final states $F \subseteq Q$. Here, $P(Q)$ denotes the power set of $Q$.
+\end{defi}
+
+\begin{defi}[Regular expression]
+	Be $\Sigma$ an alphabet. $\emptyset$ and $\epsilon$ are regular expressions, $a$ is a regular expression of $\Sigma$ for all $a \in \Sigma$. If $R_1$ and $R_2$ are regular expressions, then also $R_1 \cup R_2$, $R_1 \circ R_2$ and $R_1^*$ are regular expressions.
+\end{defi}
+
+\begin{defi}[Regular language]
+	A regular language is a language that can be expressed with a regular expression or a deterministic or non-deterministic finite automata or state machine.
+\end{defi}
+
+\begin{defi}[Grammar]
+	A grammar is a 4-tuple, $(N, \Sigma, P, S)$, consisting of a finite set $N$ of nonterminal symbols, a finite set $\Sigma$ of terminal symbols, a finite set $P$ of production rules with $(\Sigma \cup N)^* N(\Sigma \cup N)^* \rightarrow (\Sigma \cup N)^*$ and a distinguished symbol $S \in N$ that is the start symbol.
+\end{defi}
+
+Type-3 grammars generate regular languages and have a single non-terminal on the left-hand side as well as a right-hand side consisting of a single terminal or single terminal followed by a single non-terminal. The productions have the form $X \rightarrow a$ or $X \rightarrow aY$ where $X, Y \in N$ and $a \in \Sigma$. Moreover, the rule $S \rightarrow \epsilon$ is allowed if $S$ does not appear on the right side of any rule.
+
+For the language \emph{E} there are different lexemes which can be distinguished as follows in code \ref{lst:le}:
+
+\lstset{
+	numbers=left,
+	stepnumber=1,
+	numbersep=5pt,
+	numberstyle=\small\color{black},
+	basicstyle=\ttfamily,
+	keywordstyle=\color{black},
+	commentstyle=\color{black},
+	stringstyle=\color{black},
+	frame=single,
+	tabsize=2,
+	caption=Implementation of grammar E}
+
+\begin{lstlisting}[frame=htrbl, caption={Lexer rules of grammar {\ttfamily E}}, label={lst:le}, basicstyle=\scriptsize]
+// ----------------------------------------------------------------------------------
+// Here are the built-in functions of the language E where an access is possible even
+// without imports.
+
+BUILTINFUNCTION             : 'toInt'
+                            | 'toFloat'
+                            | 'toString'
+                            | 'append'
+                            | 'length'
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Represents the two truth values of logic (true, false).
+
+BOOL                        : 'true'
+                            | 'false'
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Refers to integers
+
+INTEGER                     : (DIGIT)+
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Refers to floating point numbers
+
+FLOAT                       : INTEGER DOT INTEGER
+                            | DOT INTEGER
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Any number of characters, but as little as possible that the rule is still 
+// fulfilled
+
+STRING                      : QMARK .*? QMARK
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Identifiers
+
+IDENTIFIER                  : LETTER(LETTER | DIGIT)*
+                            ;
+
+// ----------------------------------------------------------------------------------
+// (Multi)line comments (but as little as possible that the rule is still fulfilled)
+
+COMMENT                     : ('//' ~[\r\n]* '\r'? '\n' | '/*' .*? '*/' | '/**' 
+                              .*? '*/') -> skip
+;
+
+// ----------------------------------------------------------------------------------
+// Ignore control characters (the screener removes these)
+
+WHITESPACE                  : [ \t\n\r]+ -> skip
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Here are the repeating tokens in the grammar
+
+SCOLON                      : ';'
+                            ;
+
+DOT                         : '.'
+                            ;
+
+COMMA                       : ','
+                            ;
+
+ASSIGN                      : '='
+                            ;
+
+QMARK                       : '"'
+                            ;
+
+OPAREN                      : '('
+                            ;
+
+CPAREN                      : ')'
+                            ;
+
+OBRACE                      : '{'
+                            ;
+
+CBRACE                      : '}'
+                            ;
+
+OBRACKET                    : '['
+                            ;
+
+CBRACKET                    : ']'
+                            ;
+
+OCBRACKET                   : '[]'
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Letters (will never be counted as a token)
+
+fragment LETTER             : [a-zA-Z_]
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Digits (used for data types and identifiers)
+
+fragment DIGIT              : [0-9]
+                            ;
+\end{lstlisting}
+
+Conventionally, the rules for the Lexer are written in capital letters. A distinction is also made between meta and object characters. Thus, for example \texttt{+} is a metacharacter which states that an integer must consist of at least one digit. However, \texttt{'toInt'} is an object character that defines a built-in function. Repeating tokens such as brackets \texttt{\{} etc. are stored separately. The different comments are removed by the screener. In addition, there are different data types:
+
+\begin{itemize}
+	\item Booleans like \texttt{true}
+	\item Integers like \texttt{5}
+	\item Floating point numbers like \texttt{0.5} or \texttt{.5}
+	\item Strings like \texttt{"world"}
+	\item Arrays
+	\item Structures and the corresponding objects
+\end{itemize}
+
+The concrete composition of the arrays and structures can be seen in chapter \ref{sec:syntactic_analysis} on page \pageref{sec:syntactic_analysis}. A data type can be primitive or an object associated with references whereby they consist of fragments such as digits. A fragment will never be counted as a token, it only serves to simplify a grammar and makes the grammar more readable as well as easier to maintain. A special feature of the strings is that they may consist of any number of characters but only so few that the rule is still fulfilled. This ensures that strings may not apply beyond quotation marks. The same principle applies to comments. The keywords are still reserved. Furthermore, the layout is not ignored. For this reason, no lookahead is required for the automatons. Finally, the performance is increased.
+In addition, the compiler also knows the position in the source code so that more concrete error messages can be output (see chapter \ref{sec:context_analysis} on page \pageref{sec:context_analysis}). The generation of the automatons or tables for the lexemes is shown in the following figure \ref{fig:lexical_analysis}:
+
+\begin{figure}[bth]
+	\centering
+	\includegraphics[scale=0.5]{./img/lexical_analysis}
+	\caption[Workflow of the lexical analysis]{Workflow of the lexical analysis}
+	\label{fig:lexical_analysis}
+\end{figure}
+\noindent
+
+The workflow of the scanner is explained below using the example \texttt{R = LETTER(LETTER | DIGIT)*} (see figure \ref{fig:graph_transformation} on page \pageref{fig:graph_transformation}). First of all, the graph transformation takes place on the basis of rules. These come from the proof of the equivalence of finite automata and regular expressions \cite{v2013}. The rules for graph transformation can be found in the appendix on the page \pageref{sec:rules_graph_transformation}.
+
+\begin{figure}[bth]
+	\centering
+	\includegraphics[scale=0.5]{./img/graph_transformation}
+	\caption[Graph transformation on a regular expression]{Graph transformation on a regular expression}
+	\label{fig:graph_transformation}
+\end{figure}
+\noindent
+
+Accordingly, a NFA with epsilon transitions is formed. The epsilon transitions must then be removed and the powerset construction applied\footnote{Powerset construction, \url{http://www.cs.nuim.ie/~jpower/Courses/Previous/parsing/node9.html}}. First, states are marked for this purpose:
+
+\newpage
+
+\begin{figure}[bth]
+	\centering
+	\includegraphics[scale=0.6]{./img/powerset_construction}
+	\caption[Powerset construction at a NFA]{Powerset construction at a NFA}
+	\label{fig:powerset_construction}
+\end{figure}
+\noindent
+
+According to figure \ref{fig:powerset_construction}, the states $Q_0 = \{ 0 \}, Q_1 = \{ 2, 3, 1 \}, Q_2 = \{ 3 \}, Q_3 = \{ 4, 3, 1 \}$ are reached depending on the epsilon transitions. $Q_4$ is dropped here because there is nothing to read. Because the DFA states consist of sets of NFA states, an n-state NFA may be converted to a DFA with at most $2^n$ states. A converted DFA has exactly $2^n$ states, so giving an exponential time complexity. However, this runtime can be neglected since it is before the compile time.
+
+When minimizing, the same states are combined or unattainable states are removed. Two states are equal if they have the same transitions. In concrete terms, equivalence classes are formed by applying the Table Filling method\footnote{Table Filling method, \url{http://pages.cs.wisc.edu/~shuchi/courses/520-S08/handouts/Lec7.pdf}}. The resulting minimum DFA is shown in the figure \ref{fig:dfa_after_minimization} below.
+
+\begin{figure}[bth]
+	\centering
+	\includegraphics[scale=0.7]{./img/dfa_after_minimization}
+	\caption[DFA after minimization]{DFA after minimization}
+	\label{fig:dfa_after_minimization}
+\end{figure}
+\noindent
+
+Afterwards, the DFA is mapped to a table \ref{tab:dfa_table}:
+
 \begin{table}[bth]
 	\centering
-	\caption{Wahrheitstabellen von bekannten Operationen}
-	\label{tab:wtabelle}
-	\begin{tabular}{ | c | c | c | c | c | }
+	\caption{Realization of a DFA in a table}
+	\label{tab:dfa_table}
+	\begin{tabular}{ | c | c | c | }
 		\hline
-		\textbf{$x_1$} & \textbf{$x_2$} & \textbf{$x_1 \cdot x_2$} & \textbf{$x_1 + x_2$} & \textbf{$x_1 \oplus x_2$} \\ \hline
-		$0$ & $0$ & $0$ & $0$ & $0$ \\ \hline
-		$1$ & $0$ & $0$ & $1$ & $1$ \\ \hline
-		$0$ & $1$ & $0$ & $1$ & $1$ \\ \hline
-		$1$ & $1$ & $1$ & $1$ & $0$ \\ \hline
+		~ & \textbf{LETTER} & \textbf{DIGIT} \\ \hline
+		0 & 2 & ~ \\ \hline
+		2 & 2 & 2 \\ \hline
 	\end{tabular}
-\end{table}\\
+\end{table}
 \noindent
-Der Bitstring $00$ entspricht somit z.\,B. dem Funktionswert $0$ bei $x_1x_2$. Anhand eines BDDs kann also auch eine DNF bzw. KNF abgeleitet werden. Gemäß der Definition aus Kapitel \ref{sec:dnfknf} auf Seite \pageref{sec:dnfknf} wäre somit bspw. die DNF von $x_1 \oplus x_2$ $(x_1\neg x_2) + (\neg x_1 x_2)$. Die KNF wäre durch $(x_1 + x_2) \cdot (\neg x_1 \neg x_2)$ bestimmt.\\
-Hinzuzufügen ist, dass die negierte Funktion die gleiche Struktur hat, es sind lediglich die Einsen und Nullen der Wertzuweisungen vertauscht, was in Kapitel \ref{sec:implementierung} auf Seite \pageref{sec:implementierung} weitergehend erläutert wird.
-\subsection{Reduzierte geordnete BDDs (ROBDDs)}
-\label{sec:ordnung}
-Ein Entscheidungsdiagramm (DD) heißt \emph{frei}, wenn es auf jedem Pfad von der Wurzel zu einem Blatt jede Variable höchstens einmal als Markierung vorkommt. Es heißt wiederum \emph{geordnet}, wenn auf jedem Pfad von der Wurzel zu einem Blatt die Variablen in der gleichen Reihenfolge abgefragt werden:
+
+Valid words or identifiers are thus e.g. ``\_test'' or ``t3st''. Finally, all DFAs are combined for the respective lexemes. Alternatively, GOTO or WHILE programs\footnote{GOTO and WHILE programs, \url{https://www.informatik.hu-berlin.de/de/forschung/gebiete/algorithmenII/Lehre/ws11/einftheo/skript/einftheo-goto.pdf}} can be used instead of tables to show computability. The corresponding code can be found in the appendix on the page \pageref{sec:lexer}.
+
+\subsection{Syntax analysis}
+\label{sec:syntactic_analysis}
+
+The syntax analysis generates an abstract syntax tree (AST) from lexeme sequences. The basis for this is the extended Backhus-Naur Form (EBNF) which is a metalanguage for the description of context-free or Type-2 grammars (CFGs). Type-2 grammars generate context-free languages. The productions must be in the form $X \rightarrow a$ where $X \in N$ and $a \in (\Sigma \cup N)^*$. These languages generated by these grammars are be recognized by a non-deterministic pushdown automaton.
+
+\begin{defi}[BNF]
+	The BNF is a formal notation for encoding grammars intended for human consumption. Every rule in BNF has the structure \texttt{name ::= expansion} where \texttt{::=} means ``may expand into'' and ``may be replaced with''. The \texttt{name} stands for a non-terminal symbol. Every name in BNF is surrounded by angle brackets, \texttt{<>} whether it appears on the left- or right-hand side of the rule. An expansion is an expression containing terminal and non-terminal symbols, joined together by sequencing and choice. A terminal symbol is a literal or a class of literals.
+\end{defi}
+
+\begin{defi}[EBNF]
+	The EBNF is a collection of extensions to BNF but not all of these are strictly a superset, as some change the rule-definition relation \texttt{::=} to \texttt{=}, while others remove the angled brackets from non-terminals. Additional operations are options (\texttt{<term> ::= [ "-" ] <factor>}), repetitions (\texttt{<args> ::= <arg> { "," <arg> }}) and groupings (\texttt{<expr> ::= <term> ("+" | "-") <expr>}).
+\end{defi}
+
+In contrast to the conventional BNF, the EBNF therefore requires fewer constructs to describe CFGs. For example, options \texttt{[]} or repetitions \texttt{{}} can be used directly to present constructs more compactly instead of using recursions \cite{c2009}.
+
+Essentially, a derivation tree is generated by the parser during the analysis which also states how it was derived. In this way, a differentiation was also made to a recognizer. As already mentioned in the introduction, ANTLR is used as a parser generator. ANTLR uses the top-down approach instead of a bottom-up parsing, i.e. a recursive descent parser is used. The input is processed from left to right by calculating a left derivation. This means that an attempt is made to create the desired word from a start symbol. Note that there are several language classes of CFGs that can be parsed deterministically whereby ANTLR handling $LL(k)$ grammars. The $k$ stands for the respective lookaheads that can be made. If there are many lookaheads, there are fewer conflicts but more states. At \emph{E} $k=1$ was set. The language classes are listed in the appendix on page \pageref{sec:det_cfg_classes}.
+
+The parser is divided into three parts, a configuration, execution and actions which are explained in the following table \ref{tab:top_down_parsing}:
+
+\begin{table}[bth]
+	\centering
+	\caption{Functionality of the recursive descent parser}
+	\label{tab:top_down_parsing}
+	\begin{tabular}{|l|l|}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Part}} & \multicolumn{1}{|c|}{\textbf{Description}} \\\hline
+		Configuration                            & $\alpha . w$                                       \\\hline
+		Execution                               & $s . w_0 \vdash^* \epsilon . \epsilon $                                       \\\hline
+		Actions                                 & \makecell{\emph{match}: $a \alpha . aw \vdash_a \alpha . w$ \\ \emph{expand}: $A \alpha . w \vdash_p \beta \alpha . w$, where $p : A \rightarrow \beta \in P$}                                      \\\hline
+	\end{tabular}
+\end{table}
+
+Here, $\alpha$ corresponds to the hypothesis $N^*$ and $w$ is the unread input. With regard to the execution, the start and end configuration are visible. The \emph{match} function is called when a terminal is derived. With \emph{expand}, on the other hand, a rule is generally applied. It is obvious that \emph{expand} as oracle advises the next application of a rule in doubt. If there is an error or a match, backtracking must be used and there is an exponential runtime. In order to obtain a linear runtime, special care was taken to define a deterministic CFG for the language \emph{E}. 
+
+\begin{defi}[Ambiguous grammar]
+	A grammar means ambiguous if $w \in \Sigma^*$ so that several derivation trees or left and right derivations exist.
+\end{defi}
+
+In general, it is undecidable whether a grammar is ambiguous which can be shown by a reduction of PKP to this problem \cite[p.461-462]{hmu2011}. In addition, a left factorization [$A \rightarrow \alpha \beta_1 \gamma, A \rightarrow \alpha \beta_2 \gamma$] $\rightarrow$ [$A \rightarrow \alpha B \gamma, B \rightarrow \beta_1, B \rightarrow \beta_2$] ($\alpha \neq \epsilon$) was used for the recursive descent regarding the processing. Thus, for example, precedents in arithmetic or logical operations are taken into account. In the following, the CFG for the language \emph{E} in code  \ref{lst:pe} is presented and explained:
+
+\begin{lstlisting}[frame=htrbl, caption={Parser rules of grammar {\ttfamily E}}, label={lst:pe}, basicstyle=\scriptsize]
+// Start rule
+// It is evaluated from left to right.
+// A program consists of statements, functions or structures.
+
+program                     : incls+=includes* noMains+=noMain* command+ EOF
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Allows the import of different modules for e.g. mathematical calculations.
+
+includes                    : 'use' OPAREN (mods+=module)+ (COMMA (mods+=module)*)*
+                              CPAREN
+                            ;
+
+// ----------------------------------------------------------------------------------
+// A namespace can consist of several modules that are separated from each other by 
+// dots.
+
+module                      : IDENTIFIER (DOT IDENTIFIER)*
+                            ;
+
+// ----------------------------------------------------------------------------------
+// This indicates that no starting point is generated for a class.
+
+noMain                      : '#define' name='noMain'
+                            ;
+
+// ----------------------------------------------------------------------------------
+// This is a helper for the program because of functions and structs must not be in 
+// the main method during code generation. Therefore statements, structs and 
+// functions are separated.
+
+command                     : statement #StatementCommand
+                            | functionDefinition #FunctionDefinitionCommand
+                            | structDeclaration #StructDeclarationCommand
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Statements in the program code (also without a semicolon at the end)
+// Statements can stand alone and are not dependent on an expression.
+
+statement                   : print SCOLON
+                            | printLine SCOLON
+                            | variableDeclaration SCOLON
+                            | assignment SCOLON
+                            | functionCall SCOLON
+                            | branch
+                            | loop
+                            | includedFunctionCall SCOLON
+                            | builtinFunctionCall SCOLON
+                            | assembly
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Responsible for outputs without a new line
+
+print                       : 'print' OPAREN arg=expression CPAREN
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Responsible for outputs with a new line
+
+printLine                   : 'println' OPAREN arg=expression CPAREN
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Allows a declaration of variables (including an immediate initialization)
+
+variableDeclaration         : type=dataType varId=IDENTIFIER (ASSIGN expr=expression)?
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Assigning values to a variable or struct
+
+assignment                  : varId=IDENTIFIER ASSIGN expr=expression
+                            | varId=IDENTIFIER OBRACKET index=expression CBRACKET 
+                              ASSIGN expr=expression
+                            | structVariableAssignment
+                            ;
+
+// ----------------------------------------------------------------------------------
+// This can be used to assign values to structures.
+
+structVariableAssignment    : structId=IDENTIFIER DOT varId=IDENTIFIER ASSIGN
+                              expr=expression
+                            | structId=IDENTIFIER DOT varId=IDENTIFIER OBRACKET
+                              index=expression CBRACKET ASSIGN expr=expression
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Indicates a function call (with arguments).
+
+functionCall                : funcId=IDENTIFIER OPAREN 
+                              currentParams=currentParameters CPAREN
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Identifies a branch through which decisions can be made (else block is optional).
+
+branch                      : 'if' OPAREN cond=expression CPAREN onTrue=block 
+                              ('else' onFalse=block)?
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Realizes while loops whereby Turing-completeness applies.
+
+loop                        : 'while' OPAREN cond=expression CPAREN body=block
+                            ;
+
+// ----------------------------------------------------------------------------------
+// With this you can directly write assembler in high level language. Assembly can be
+// executed or written directly. However, objects can also be initialized directly.
+
+assembly                    : 'asm' OBRACE str=STRING CBRACE #InlineAssembly
+                            | 'invoke' mod=STRING id=STRING OPAREN args+=jvmType* 
+                              CPAREN returnType=STRING SCOLON #InvokeAssembly
+                            | 'new' type=STRING SCOLON #InitObject
+                            | 'pushToStack' expression SCOLON #PushToStack
+                            | 'setTopOfStack' type=STRING SCOLON #SetTopOfStack
+                            ;
+
+// ----------------------------------------------------------------------------------
+// The supported types of the JVM
+
+jvmType                     : STRING
+                            ;
+
+// ----------------------------------------------------------------------------------
+// This can be used to access functions from other packages.
+
+includedFunctionCall        : inclDir=IDENTIFIER DOT funcId=IDENTIFIER OPAREN
+                              args=currentParameters CPAREN ':' type=dataType
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Can be used to call built-in functions such as castings (without any imports).
+
+builtinFunctionCall         : funcId=BUILTINFUNCTION OPAREN
+                              currentParams=currentParameters CPAREN
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Definition of a function with parameters and a body with (several) statements 
+// (a return value is optional)
+
+functionDefinition          : type=dataType funcId=IDENTIFIER OPAREN
+                              formalParams=formalParameters CPAREN OBRACE
+                              stmts=statements ('return' returnVal=expression 
+                              SCOLON)? CBRACE
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Describes the declaration of a structure with at least one variable.
+
+structDeclaration           : 'struct' structId=IDENTIFIER OBRACE
+                              (decls+=variableDeclaration SCOLON)+ CBRACE
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Initializes an object.
+
+structArrayInitialization   : 'new' object=dataType OPAREN args=assignments CPAREN
+                            | 'new' type=primitive OBRACKET size=expression CBRACKET
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Helper for initialization to assign values
+
+assignments                 : asgmts+=expression (COMMA asgmts+=expression)*
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Mathematical operators
+// Precedence (partial order): neg, (div, mul, rem), (sub, add), comp (same
+// precedences), and, or, ... Labels allow access in the code.
+
+expression                  : '-' expression #UnaryMinusExpression
+                            | expression op=('/' | '*' | '%') expression
+                              #DivisionMultiplicationModuloExpression
+                            | expression op=('-' | '+') expression  
+                              #SubtractionAdditionExpression
+                            | expression op=('<<' | '>>') expression #ShiftExpression
+                            | expression op=('<' | '<=' | '>' | '>=' | '==' | '!=')
+                              expression #RelationalExpression
+                            | lExpr=expression '&&' rExpr=expression
+                              #ConjunctionExpression
+                            | lExpr=expression '||' rExpr=expression
+                              #DisjunctionExpression
+                            | expression '^' expression #ContravalenceExpression
+                            | varId=IDENTIFIER OBRACKET index=expression CBRACKET
+                              #ArrayExpression
+                            | structId=IDENTIFIER DOT varId=IDENTIFIER 
+                              #StructExpression
+                            | structId=IDENTIFIER DOT varId=IDENTIFIER OBRACKET
+                              index=expression CBRACKET #StructArrayExpression
+                            | structInitialization #StructInitializationExpression
+                            | bool=BOOL #BoolExpression
+                            | number=INTEGER #IntegerExpression
+                            | number=FLOAT #FloatingPointExpression
+                            | str=STRING #StringExpression
+                            | varId=IDENTIFIER #VariableExpression
+                            | builtinFunctionCall #BuiltinFunctionExpression
+                            | functionCall #FunctionExpression
+                            | includedFunctionCall #IncludedFunctionExpression
+                            | 'topOfStack' #TopOfStack
+                            ;
+
+// ----------------------------------------------------------------------------------
+// The current parameter list of functions can be of any length (no visitor).
+
+currentParameters           : exprs+=expression (COMMA exprs+=expression)*
+                            |
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Provides a basic block with an entry and exit from a control flow (no visitor).
+
+block                       : OBRACE statements CBRACE
+                            ;
+
+// ----------------------------------------------------------------------------------
+// Helper for more statements regarding blocks (no visitor)
+
+statements                  : statement*
+                            ;
+
+// ----------------------------------------------------------------------------------
+// The formal parameter list of functions can be of any length (no visitor).
+// The number of parameters is also saved.
+
+formalParameters            : decls+=variableDeclaration (COMMA
+                              decls+=variableDeclaration)*
+                            |
+                            ;
+
+// Represents the different data types (including lists and objects)
+
+dataType                    : primitive(OCBRACKET)?
+                            | IDENTIFIER(OCBRACKET)?
+                            ;
+
+// ----------------------------------------------------------------------------------
+// The supported (primitive) types
+
+primitive                   : 'bool'
+                            | 'int'
+                            | 'float'
+                            | 'String'
+                            | 'void'
+                            ;
+\end{lstlisting}
+
+It should be mentioned that first as well as follow sets $F_i(N)$ and $F_o(N)$ were created to promote a left factorization which is why double entries are not allowed. The first set includes the start of a derivative of the variable in the grammar and the follow set the subsequent derivatives of the symbols that are possible or where the variable can be used. It applies, for example, $F_i(variableDeclaration) = \{ var \}$ and $F_o(variableDeclaration) = \{ '=', ';' \}$. Conventionally, the parser rules consist only of minuscules. The start symbol of the grammar is \texttt{program}. The evaluation takes place from left to right. In the grammar different constructs of the language \emph{E} are listed. A program consists of commands, i.e. statements, structures and functions. \texttt{EOF} means in this context that it definitely parses to the end of the file, even if errors occur before it. This results in a total output of all errors made. Statements must be in the main program or in blocks of functions or structures. They can also contain expressions or appear again in statements. An example is \texttt{if-else}. It may contain expressions, but may appear in a loop. Functions as well as structures are outside in this context. They are separated from the main program. This means that definitions and declarations can also be made after use. There are commands such as:
+
+\begin{itemize}
+	\item Imports like \texttt{use(e.io.reader)}
+	\item Import calls like \texttt{String r = reader.read(): String;}
+	\item Macro Instructions like \texttt{\#define noMain}
+	\item Outputs like \texttt{print("world");}
+	\item Variable declarations or assignments like \texttt{int a;} as well as \texttt{float a = 5.3;}
+	\item Function definitions like \texttt{void foo(int a, int b) \{ print(a*b); \}}
+	\item Function calls like \texttt{foo(7, 8);}
+	\item Branches like \texttt{if (x) \{ a = 5; \} else \{ a = 7; \}}
+	\item Loops like \texttt{int i = 0; while (i < 3) \{ println(i); i = i + 1; \}}
+	\item Built-in functions like \texttt{toInt(3.7);}
+	\item Inline assembler like \texttt{invoke "static" "java/lang/System/nanoTime"() "J";}
+	\item Structures like \texttt{struct Point \{ int x; int y; \}}
+	\item Struct initializations like \texttt{Point p = new Point(1, 2);}
+	\item Arrays like \texttt{int[] a = new int[5];}
+	\item Arithmetic operators like \texttt{a + b}
+	\item Shift operators like \texttt{a >> b}
+	\item Relational operators like \texttt{a <= b}
+	\item Logical operators like \texttt{a \&\& b}	
+\end{itemize}
+
+The use of while loops make \emph{E} Turing complete \cite{z2018}. For this reason, it can be used to simulate any Turing machine. This means that this system is able to recognize or decide other data-manipulation rule sets. It is also possible, for example, to specify expressions such as multiplication or a number directly within the output. In order to increase readability, various labels such as \texttt{arg=expression} has been assigned to \texttt{print}. This makes it easier to access the respective expression such as a number or string by \texttt{arg} via the context within the visitor pattern during traversing (see chapter \ref{sec:context_analysis} on page \pageref{sec:context_analysis}). The parser rules therefore directly access the lexer rules. Labels were also awarded for a rule that allows several derivatives. An example of this is the subtraction or addition that has the label \texttt{\#SubtractionAdditionExpression}. Thus this rule can later be addressed directly by \texttt{visitSubtractionAdditionExpression} during traversing and also has its own context \texttt{SubtractionAdditionExpressionContext}. The same applies analogously to the other commands. Labels must not comply with the rules or be duplicated. The respective precedents are guaranteed by the order in which ANTLR4 follows sequentially. Different expressions can also be used in blocks such as branches. This allows statements to exist that do not have a semicolon at the end. In addition, symbols such as \texttt{+=} ensure that parameters can be counted which is particularly important for functions and later type analysis. Basically, functions are divided into call and definition by \texttt{functionDefinition} as well as \texttt{functionCall}. Functions are defined in the header and there does not have to be a declaration of variables. Furthermore, they can also be overloaded, i.e. the same name with different but arbitrarily long parameters is possible. The same principle applies to self-defined types such as structures.
+
+The top-down parser uses a (simplified) abstract syntax to create the commands shown in the figure \ref{fig:abstract_syntax}:
+
 \begin{figure}[bth]
 	\centering
-	\includegraphics[scale=0.5]{./img/ordnung}
-	\caption[Geordnetes und ungeordnetes freies DD]{Geordnetes und ungeordnetes freies DD}
-	\label{fig:ordnung}
-\end{figure}\\
+	\includegraphics[scale=0.44]{./img/abstract_syntax}
+	\caption[Abstract syntax]{Abstract syntax}
+	\label{fig:abstract_syntax}
+\end{figure}
 \noindent
-Bei beiden Diagrammen aus der Abbildung \ref{fig:ordnung} geht hervor, dass sie frei sind, da auf jedem Pfad jede Variable höchstens einmal vorkommt. Das zweite Diagramm ist allerdings ungeordnet, da dort die Variablen nicht in der gleichen Reihenfolge abgefragt werden.\\
-Eine Boolesche Funktion ist von $n$ Variablen abhängig, was für ein BDD bedeutet, dass er mindestens $2^{n+1}-1$ Knoten hat. Wie bereits in der Einleitung auf Seite \pageref{sec:einleitung} erwähnt, sollen Informationen aber kompakt dargestellt werden. Es kann vorkommen, dass sich beim Erstellen eines BDDs identische Kofaktoren ergeben, d.\,h. es gibt zwei interne Knoten, die dieselbe Funktion repräsentieren. Es kann aber auch passieren, dass redundante Knoten auftreten. Ein Knoten ist genau dann redundant, wenn seine t- als auch seine e-Kante auf denselben nächsten Knoten zeigen. Ein BDD heißt also \emph{reduziert}, wenn es keinen nichtterminalen Knoten $v$ mit dem Index $x$ und $(f_v)_x = (f_v)_x'$ gibt und auch keine verschiedenen Knoten $v, w$ existieren, die gleich markiert  sowie deren Kinder (falls vorhanden) jeweils identisch sind. Sowohl die Isomorphie- als auch die Redundanz-Regel sind in der Abbildung \ref{fig:reduziert} ersichtlich:
+
+The AST is therefore described as an object structure by the abstract syntax. For simplicity, further edge markers, constructors and query functions have been omitted. Among other things, it can be recognized that commands cannot exist without a program. Furthermore, variables or functions can be used in expressions that are evaluated. Expressions can also be used, for example, in branches. Certain associated error classes ensure that users of language \emph{E} are notified of incorrect operation. The corresponding instructions for creation are in this document (simplified) parser and can be found in the appendix on page \pageref{sec:parser}. There is a procedure for each parser rule where the next lexeme $l$ is treated. Error handling is also performed during parsing. For example, the character \texttt{@} does not belong to any expression and in this case a \texttt{RecognitionException} would be thrown because this object character is not known. If a procedure is called, then $l \in F_i$ applies before. Then $l \in F_o$ is valid.
+
+In the following, an AST is generated from the program code \texttt{print(3+2*4)} as an example:
+\begin{align*}
+program &\vdash command;\\
+&\vdash statement;\\
+&\vdash print;\\
+&\vdash print(expression);\\
+&\vdash print(expression\text{ }+\text{ }expression);\\
+&\vdash print(3+expression);\\
+&\vdash print(3+expression*expression);\\
+&\vdash print(3+2*expression);\\
+&\vdash print(3+2*4);
+\end{align*}
+
+Thus, a derivation tree could be successfully generated whereby the precedents are controlled by the ranking order. This also means that an ambiguous grammar must be checked. The corresponding AST is shown in figure \ref{fig:ast} on page \pageref{fig:ast}:
+
+\newpage
+
 \begin{figure}[bth]
 	\centering
-	\includegraphics[scale=1.0]{./img/reduziert}
-	\caption[Reduktionsregeln bei BDDs]{Reduktionsregeln bei BDDs}
-	\label{fig:reduziert}
-\end{figure}\\
+	\includegraphics[scale=0.65]{./img/ast}
+	\caption[Abstract syntax]{Abstract syntax tree}
+	\label{fig:ast}
+\end{figure}
 \noindent
-Durch die wiederholte Verschmelzung von isomorphen Teilgraphen und Entfernen redundanter Knoten entsteht letztendlich ein reduziertes BDD, was anhand der Abbildung \ref{fig:reduktionen} demonstriert wird:
-\begin{figure}[bth]
-	\centering
-	\includegraphics[scale=0.4]{./img/reduktionen}
-	\caption[Anwendung der Reduktionsregeln bei einem BDD]{Anwendung der Reduktionsregeln bei einem BDD}
-	\label{fig:reduktionen}
-\end{figure}\\
-\noindent
-Hier gehen besonders die Abhängigkeiten der Regeln hervor. So ist gelegentlich erst eine Regel nach vorherigen Reduktionsschritten anwendbar. Insgesamt gesehen genügt es, solange Reduktionsregeln anzuwenden, bis keine Regel mehr anwendbar ist. Es sollte jedoch verhindert werden, dass zu häufig für einen Knoten geprüft wird, ob eine Regel angewendet werden kann. Es empfiehlt sich hier ein rekursiver Algorithmus, da so für Knoten endgültig entschieden werden kann, ob sie gelöscht oder mit einem anderen Knoten verschmolzen werden. Diese Frage stellt sich genau dann, wenn auf die Nachfolger keine Regel mehr angewendet werden kann \cite{a2010}:
-\lstset{language=xml}
-\begin{lstlisting}[frame=htrbl, caption={Implementierung von {\ttfamily reduce}}, label={lst:reduce}]
-program reduce()
-  input: OBDD G in Bezug auf f mit der Ordnung x[1], ..., x[n]
-  output: ROBDD G'
-  v := Innerer Knoten von g
-  l0 := 0-Blatt
-  l1 := 1-Blatt
-  v.id := Nummer von v
-  id := Nummer
-  v.i := Index der Variablen, mit der v markiert ist
-  v.low := low-Kind
-  v.high := high-Kind
-  vec := Liste, welcher Knoten die weiteren Nummern darstellt
-  x := Markierte Knoten
-  marked := Liste mit markierten Knoten
-  foreach (G) do
-    merge(l0.all)
-    merge(l1.all)
-    l0.id := 0
-    vec[l0.id] := l0
-    l1.id := 1
-    vec[l1.id] := l1
-    marked := (x[1], ..., x[n])
-  end foreach
-  id := 1
-  for (i := n to 1) do
-    while (marked) do
-      if (v.low.id = v.high.id) then
-        v.id := v.low.id
-        marked.del(v)
-      end if
-    end while
-    // Key von v ist (v.low.id, v.high.id)
-    sort_lex(marked)
-    // Verschmelze hintereinander stehende Knoten
-    foreach (marked) do
-      id := id + 1
-      v[1].id := id
-      vec[v[1].id] := v[1]
-      v[1].0 := vec[v[1].low.id]
-      v[1].1 := vec[v[1].high.id]
-      v[2].id := v[1].id
+
+Due to the recursive definitions, a tree with theoretically infinite depth is created and can be traversed post-order to generate the instructions which will be explained in the next chapter.
+
+\subsection{Context analysis}
+\label{sec:context_analysis}
+
+In general, an AST is marked with attributes during context analysis. These stand for cross-references with regard to definitions or usage. The AST then becomes an abstract syntax graph (ASG) which can also contain cycles due to recursions. The general steps are as follows:
+
+\begin{enumerate}
+	\item \textbf{Declaration analysis}: Checks, for example, whether a variable was declared before use.  
+	\item \textbf{Type analysis}: Checks, for example, whether formal and current parameters match for functions.
+\end{enumerate}
+
+Thus, all rules that cannot be covered with a scanner (see chapter \ref{sec:lexical_analysis} on page \pageref{sec:lexical_analysis}) or parser must be checked. In the context, this includes both static (variable must have been defined) and dynamic conditions (a variable must be in the index area).
+
+To describe the context conditions, a syntax-directed transduction is used instead of a two-level grammar, i.e. recursive functions are used on the AST.
+
+On the described object structure from chapter \ref{sec:syntactic_analysis} on page \pageref{sec:syntactic_analysis} a general visitor can be defined who traverses the tree from which can be inherited later. A visit function is used to visit all connected elements. From this general visitor different visitors can be derived who define different operations on the AST. An excerpt of this visitor can be seen in the following code \ref{lst:visitor}:
+
+\definecolor{javared}{rgb}{0.6,0,0} % Strings
+\definecolor{javagreen}{rgb}{0.25,0.5,0.35} % Comments
+\definecolor{javapurple}{rgb}{0.5,0,0.35} % Keywords
+\definecolor{javadocblue}{rgb}{0.25,0.35,0.75} % Javadoc
+
+\lstset{language=Java,
+	basicstyle=\ttfamily,
+	keywordstyle=\color{javapurple}\bfseries,
+	stringstyle=\color{javared},
+	commentstyle=\color{javagreen},
+	morecomment=[s][\color{javadocblue}]{/**}{*/},
+	numbers=left,
+	numberstyle=\tiny\color{black},
+	stepnumber=2,
+	numbersep=10pt,
+	tabsize=4,
+	showspaces=false,
+	showstringspaces=false}
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily EVisitor.java}}, label={lst:visitor}, basicstyle=\footnotesize]
+public class EVisitor extends EBaseVisitor<String> {
+   /** A list with all already defined functions */
+   private final FunctionPrototypeList functions;
+
+   /** Structs with declared variables and types (with references) */
+   private final LinkedHashMap<String, CustomType> structs;
+
+   /** Static variables in the main program (references to structs) */
+   private final Map<String, TypeInformation> staticVarsNamesTypes;
+...
+   /** The namespace of the program you want to compile currently */
+   private final String namespace;
+
+   /** Descriptor for own declared types as reference */
+   private final String typeNamespace;
+
+   /** Parent directory (path to file for legacy) */
+   private final File parentDir;
+
+   /** Saves the module name as well as the path */
+   private final Map<String, String> includedModules;
+
+   /** Should a main method be created? */
+   private boolean noMain;
+
+   /** The variables in the table are accessed numerically. */
+   private Map<String, TypeInformation> vars;
+
+   /** Logs the used data types at compile time. */
+   private DataTypeStack dataTypeStack;
+
+   /** Is one in a function or the main program? */
+   private boolean isGlobalScope;
+
+   /** Counts the branches because no label may be ambiguous. */
+   private int branchCounter;
+...
+   /** Needed when initializing a structure */
+   private String lookupStoreCommand;
+
+   /** Also required when initializing a structure */
+   private String lookupLoadCommand;
+   
+   /** Holds the current id of a struct */
+   private int lookupStructId;
+
+   public EVisitor(FunctionPrototypeList definedFunctions, 
+      LinkedHashMap<String, CustomType> declaredStructs, 
+      Map<String, TypeInformation> declaredStaticVars, String namespace, 
+      ...) {
       ...
-      v[l].id := v[1].id
-    end foreach
-  end for
-end program
+   }
+
+   @Override
+   public String visitProgram(ProgramContext ctx) {
+      // Generate potential code for the imports
+      final int importNumber = ctx.incls.size();
+      for (int i = 0; i < importNumber; ++i) {
+         visit(ctx.getChild(i));
+      }
+      final int noMainNumber = ctx.noMains.size();
+      for (int i = importNumber; i < noMainNumber; ++i) {
+         visit(ctx.getChild(i));
+      }
+      final StringBuilder mainInstructions = new StringBuilder();
+      final StringBuilder functionInstructions = new StringBuilder();
+      // Regarding structs
+      final StringBuilder extraClassesInstructions = new StringBuilder();
+      for (int i = importNumber; i < ctx.getChildCount() - 1; ++i) {
+         final ParseTree child = ctx.getChild(i);
+         // Visit a parse tree and return a result of the operation
+         final String instructions = visit(child);
+         if (child instanceof StatementCommandContext) {
+            mainInstructions.append(instructions).append('\n');
+         } else if (child instanceof StructDeclarationCommandContext) {
+            // The structures are marked accordingly because afterwards 
+            // own files are created for them
+            extraClassesInstructions.append("\n*").append(instructions)
+               .append('\n');
+         } else {
+            functionInstructions.append(instructions).append('\n');
+         }
+      }
+      final StringBuilder instructions = 
+         new StringBuilder(".class public ")
+         .append(namespace)
+         .append("\n.super java/lang/Object\n\n")
+         .append(staticVars.toString())
+         .append('\n')
+         .append(functionInstructions.toString())
+         .append('\n');
+      if (!noMain) {
+         instructions
+            .append(".method public static main([Ljava/lang/String;)V\n")
+            .append(".limit stack ")
+            .append(dataTypeStack.getMaxStackSize())
+            .append("\n.limit locals 1\n\n")
+            .append(mainInstructions.toString()).append("\nreturn\n\n")
+            .append(".end method")
+            .append(extraClassesInstructions.toString());
+      } else {
+         instructions.append(mainInstructions.toString()).append('\n')
+            .append(extraClassesInstructions.toString());
+      }
+      return instructions.toString();
+   }
+...
+   @Override
+   public String visitIncludes(IncludesContext ctx) {
+      for (int i = 0; i < ctx.mods.size(); ++i) {
+         final String namespace = ctx.mods.get(i).getText()
+            .replace('.', '_');
+         final File file = new File(parentDir, namespace);
+         final String address =
+         file.getAbsolutePath().substring(parentDir
+            .getAbsolutePath().length() + 1);
+         if (!Main.programs.contains(address) &&
+            !Main.compiledPrograms.contains(address)) {
+            // Add the respective module to the compilation list
+            Main.programs.add(address.replace("_", "/"));
+         }
+         final String fileName =
+            file.getName().split("_")[file.getName()
+               .split("_").length - 1];
+         // Stores the filename ("math") and the path ("e_std_math") 
+         // to the file (to compile)
+         includedModules.put(fileName, address);
+      }
+      return "";
+   }
+
+   @Override
+   public String visitPrint(PrintContext ctx) {
+      final String argumentInstructions = visit(ctx.arg);
+      // Get type to output
+      final TypeInformation typeInfo = dataTypeStack.pop();
+      // Get the associated JVM type
+      String jvmType = typeInfo.getJvmType();
+      if (typeInfo.getDataType() == DataType.OBJREF) {
+         // Get the address (position) of the struct
+         jvmType = 'L' + typeNamespace + jvmType + ';';
+      }
+      // Get the type that "visit" put on the stack
+      return "getstatic java/lang/System/out Ljava/io/PrintStream;\n"
+         + argumentInstructions
+         + "\ninvokevirtual java/io/PrintStream/print("
+         + jvmType + ")V\n";
+   }
+...
+   @Override
+   public String visitVariableDeclaration(VariableDeclarationContext 
+      ctx) {
+      String instructions = "";
+      final Token varIdToken = ctx.varId;
+      final String varId = varIdToken.getText();
+      final String type = ctx.type.getText();
+      // Get type object by type name
+      final DataType dataType = DataType.getType(type);
+      // Command to store a variable
+      String storeCommand = "";
+      final ExpressionContext exprContext = ctx.expr;
+      if (isGlobalScope) {
+         // When you are in the main method
+         // Get type information by variable name
+         final TypeInformation typeInfo = staticVarsNamesTypes
+            .get(varId);
+         lookupStoreCommand = "putstatic " + namespace + "/v" + typeInfo
+            .getId();
+         lookupLoadCommand = "getstatic " + namespace + "/v" + 
+            typeInfo.getId();
+         storeCommand = "putstatic " + namespace + "/v";
+         // Descriptor for field access
+         String descriptor;
+         if (dataType == DataType.OBJREF) {
+            descriptor = "L" + typeNamespace + structs.get(type)
+               .getId() + ';';
+            vars.put(varId, new TypeInformation(vars.size(), 
+               dataType, structs.get(type).getId()));
+         } else {
+            descriptor = dataType.getJvmType();
+            vars.put(varId, new TypeInformation(vars.size(), dataType));
+         }
+         staticVars.append(".field public static v")
+            .append(getVariableIndexByVariableIdToken(varIdToken))
+            .append(' ').append(descriptor).append('\n');
+         if (exprContext != null) {
+            instructions = visit(exprContext) + '\n' + storeCommand +
+               getVariableIndexByVariableIdToken(varIdToken) + ' ' + 
+               descriptor;
+            if (dataTypeStack.peek().getDataType() != dataType) {
+               throw new WrongDataTypeException(varIdToken);
+            }
+            dataTypeStack.pop();
+            return instructions;
+         }
+         return instructions;
+      } else {
+         // When you are in a function
+         if (vars.containsKey(varId)) {
+            throw new AlreadyDeclaredVariableException(varIdToken);
+         }
+         if (dataType == DataType.OBJREF) {
+            vars.put(varId, new TypeInformation(vars.size(), dataType,
+               structs.get(type).getId()));
+         } else {
+            vars.put(varId, new TypeInformation(vars.size(), dataType));
+         }
+         final TypeInformation typeInformation = vars.get(varId);
+         if (typeInformation.isArray() || dataType == DataType.STRING || 
+            dataType == DataType.OBJREF) {
+            storeCommand = "astore";
+            lookupStoreCommand = storeCommand + ' ' + typeInformation
+               .getId();
+            lookupLoadCommand = "aload " + typeInformation.getId();
+         } else if (dataType == DataType.INT) {
+            storeCommand = "istore";
+            lookupStoreCommand = storeCommand + ' ' + typeInformation
+               .getId();
+            lookupLoadCommand = "iload " + typeInformation.getId();
+         } else if (dataType == DataType.FLOAT) {
+            storeCommand = "fstore";
+            lookupStoreCommand = storeCommand + ' ' + typeInformation
+               .getId();
+            lookupLoadCommand = "fload " + typeInformation.getId();
+         }
+         if (exprContext != null) {
+            instructions = visit(exprContext) + '\n';
+            instructions += storeCommand + ' ' +
+                getVariableIndexByVariableIdToken(varIdToken);
+            if (dataTypeStack.peek().getDataType() != dataType) {
+               throw new WrongDataTypeException(varIdToken);
+            }
+            dataTypeStack.pop();
+            return instructions;
+         }
+         return instructions;
+      }
+   }
+
+   @Override
+   public String visitAssignment(AssignmentContext ctx) { ... }
+
+   @Override
+   public String visitFunctionCall(FunctionCallContext ctx) { ... }
+
+   @Override
+   public String visitBranch(BranchContext ctx) { ... }
+...
+   @Override
+   public String visitLoop(LoopContext ctx) { ... }
+
+   @Override
+   public String visitIncludedFunctionCall(IncludedFunctionCallContext 
+      ctx) { ... }
+
+   @Override
+   public String visitBuiltinFunctionCall(BuiltinFunctionCallContext 
+      ctx) { ... }
+
+   @Override
+   public String visitInlineAssembly(InlineAssemblyContext ctx) { ... }
+...
+   @Override
+   public String visitFunctionDefinition(FunctionDefinitionContext 
+      ctx) { ... }
+
+   @Override
+   public String visitStructDeclaration(StructDeclarationContext 
+      ctx) { ... }
+
+   @Override
+   public String visitStructArrayInitialization(
+      StructArrayInitializationContext ctx) { ... }
+      
+   @Override
+   public String visitAssignments(AssignmentsContext ctx) { ... }
+
+   @Override
+   public String visitUnaryMinusExpression(UnaryMinusExpressionContext 
+      ctx) { ... }
+
+   @Override
+   public String visitDivisionMultiplicationModuloExpression(
+      DivisionMultiplicationModuloExpressionContext ctx) { ... }
+
+   @Override
+   public String visitSubtractionAdditionExpression(
+      SubtractionAdditionExpressionContext ctx) { 
+      String instructions = visitChildren(ctx);
+      final TypeInformation typeInfo = dataTypeStack.peek();
+      final DataType leftOperandType = dataTypeStack.pop().getDataType();
+      final DataType rightOperandType = dataTypeStack.pop()
+         .getDataType();
+      // Only integer and floating point numbers are allowed
+      if (leftOperandType != DataType.INT && leftOperandType != DataType
+         .FLOAT || leftOperandType != rightOperandType) {
+         throw new WrongDataTypeException(ctx.start);
+      }
+      final String arithmeticOperator = ctx.op.getText();
+      switch (arithmeticOperator) {
+         case "-":
+            switch (typeInfo.getDataType()) {
+               case INT:
+                  instructions += "\nisub";
+                  break;
+               case FLOAT:
+                  instructions += "\nfsub";
+                  break;
+               default:
+                  throw new WrongDataTypeException(ctx.start);
+            }
+            break;
+         case "+":
+            switch (typeInfo.getDataType()) {
+               case INT:
+                  instructions += "\niadd";
+                  break;
+               case FLOAT:
+                  instructions += "\nfadd";
+                  break;
+               default:
+                  throw new WrongDataTypeException(ctx.start);
+               }
+               break;
+         default:
+            throw new IllegalArgumentException("Unknown arithmetic 
+               operator: " + arithmeticOperator);
+      }
+      dataTypeStack.push(typeInfo);
+      return instructions;  
+   }
+
+   @Override
+   public String visitShiftExpression(ShiftExpressionContext ctx) { ... }
+
+   @Override
+   public String visitRelationalExpression(RelationalExpressionContext 
+      ctx) { ... }
+
+   @Override
+   public String visitConjunctionExpression(ConjunctionExpressionContext 
+      ctx) { ... }
+
+   @Override
+   public String visitDisjunctionExpression(DisjunctionExpressionContext 
+      ctx) { ... }
+
+   @Override
+   public String visitContravalenceExpression(
+      ContravalenceExpressionContext ctx) { ... }
+
+   @Override 
+   public String visitArrayExpression(ArrayExpressionContext ctx) { ... }
+
+   @Override 
+   public String visitStructExpression(StructExpressionContext 
+      ctx) { ... }
+
+   @Override 
+   public String visitStructArrayExpression(StructArrayExpressionContext 
+      ctx) { ... }
+
+   @Override
+   public String visitBoolExpression(BoolExpressionContext ctx) { ... }
+
+   @Override
+   public String visitIntegerExpression(IntegerExpressionContext 
+      ctx) { 
+      dataTypeStack.push(new TypeInformation(DataType.INT));
+      return "ldc " + ctx.number.getText();
+   }
+
+   @Override
+   public String visitFloatingPointExpression(
+      FloatingPointExpressionContext ctx) { ... }
+
+
+   @Override
+   public String visitStringExpression(StringExpressionContext 
+      ctx) { ... }
+
+   @Override
+   public String visitVariableExpression(VariableExpressionContext 
+      ctx) { ... }
+...
+   @Override
+   protected String aggregateResult(String aggregate, 
+      String nextResult) {
+      if (aggregate == null) {
+         return nextResult;
+      }
+      if (nextResult == null) {
+         return aggregate;
+      } else {
+      return aggregate + '\n' + nextResult;
+   }
+}
 \end{lstlisting}
-Gemäß dem Code \ref{lst:reduce} können Knoten des OBDDs nicht direkt gelöscht werden, da es keine rückwärts gerichteten Zeiger gibt. Wenn also ein Knoten gelöscht werden soll, so müssen die Zeiger von $v$ auf den Nachfolger davon umgesetzt werden. Wenn die Knoten $v, w$ verschmolzen werden sollen, so müssen die Zeiger wiederum von $v$ auf $w$ umgelegt werden. Hier wird das Löschen derartig realisiert, indem $v$ die $id$ von $w$ erhält. Aufgrund dessen, dass nun mehrere Knoten mit derselben Nummer existieren können, wird in einem Vektor $vec$ gespeichert, welcher Knoten mit der jeweiligen Nummer die Übrigen repräsentiert. Hervorzuheben -- in Bezug auf den Redundanztest -- ist, dass lediglich eine Traversierung durch das OBDD ausreicht, was durch die Eigenschaften von ROBDDs bedingt ist \cite[S.44]{s2007}. Wenn $G$ keinen mit $x_i$ markierten Knoten besitzt, so wird für $x_i=0, x_i=1$ derselbe Funktionswert berechnet. Demnach hängt $f$ aber nicht maßgeblich von $x_i$ ab, was automatisch auch für alle Subfunktionen gilt. Das ROBDD enthält somit auch keinen mit $x_i$ markierten Knoten. Sollte $f$ im Umkehrschluss maßgeblich von $x_i$ abhängen, so gilt $f_{x_i=0} \neq f_{x_i=1}$ und das ROBDD enthält einen mit $x_i$ markierten Knoten.\\
-Bei Implementierungen (siehe Kapitel \ref{sec:ite} ab Seite \pageref{sec:ite}) wird direkt bei der Synthese darauf geachtet, dass Reduktionen unmittelbar bei der Erstellung von Knoten angewendet werden können, um mehrfache Traversierungen zu verhindern.\\
-Alle Operationen -- bis auf das Sortieren -- benötigen pro Knoten nur eine konstante Zeit, d.\,h. $O(1)$. Für das Sortieren kann Bucketsort verwendet werden, womit in der Liste dann Knoten mit den gleichen Nachfolgern gefunden werden können \cite{a2010}. Bucketsort ist daher ein Sortierverfahren, das für bestimmte Werte-Verteilungen einer Eingabeliste wie folgt sortiert:
+
+Accordingly, a semantic analysis can be realized in a visitor. Thus, new operations can be easily added by defining new visitors and related operations can be centrally managed in the visitor. The elements of the tree are visited which e.g. extends the symbol table information of variables. Expressions can also be checked to see if they are well typed. A visitor is used who also takes over the synthesis at the same time which will be explained in the next chapter.
+
+To demonstrate how the tree is traversed, the example shall serve in the form of the figure \ref{fig:ast} on page \pageref{fig:ast}. The tree is traversed post-order due to the later code generation. Thus, the children are treated first before the parents are processed. Finally, the terminals are determined with \texttt{getText}. In the example, $3, 2, 4, *, +$ would be determined. As already mentioned, there is a corresponding method for each desired operation. Besides the methods of the base class for \texttt{program} and \texttt{statement}, \texttt{visitPrint} is called with the corresponding context. Then, \texttt{visit} is called with an expression as argument (here the addition) for producing the respective code. Now, \texttt{visitChildren} is called in \texttt{visitSubtractionAdditionExpression} where the context is passed. The method \texttt{visitChildren} visits the children of a node and returns a user-defined result of the specific operation. In contrast to this, the method \texttt{visit} visits a parse tree and return a user-defined result of the operation. On the one hand, \texttt{visitIntegerExpression} is called where the first number is determined. On the other hand, the right child is a multiplication where \texttt{visitDivisionMultiplicationModuloExpression} (analogous to addition) is called. Then, the further numbers are determined. Afterwards, the parents are determined, namely \texttt{*} and \texttt{+}. The corresponding aggregation of the string is explained in chapter \ref{sec:code_generation} on page \pageref{sec:code_generation}. Data types have also been implemented in the compiler. So only the integers and floating point numbers work in the arithmetic operations which is queried via conditions. Otherwise an exception is thrown. In order to manage the data types, a stack is used as data structure which is visible in code \ref{lst:dataTypeStack}:
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily DataTypeStack.java}}, label={lst:dataTypeStack}, basicstyle=\footnotesize]
+public class DataTypeStack {
+   /** A linked list of types */
+   private final Deque<TypeInformation> typesStack;
+
+   /** Maximum stack size for variables and so on */
+   private int maxStackSize;
+
+   DataTypeStack() {
+      typesStack = new LinkedList<>();
+      maxStackSize = 0;
+   }
+
+   public final void push(TypeInformation type) {
+      if (type.getDataType() != DataType.VOID) {
+         typesStack.push(type);
+      }
+      if (typesStack.size() > maxStackSize) {
+         ++maxStackSize;
+      }
+   }
+
+   public final TypeInformation pop() {
+      return typesStack.pop();
+   }
+
+   public final TypeInformation peek() {
+      return typesStack.peek();
+   }
+
+   public final int getMaxStackSize() {
+      return maxStackSize + 1;
+   }
+}
+\end{lstlisting}
+
+The stack manages overall type information whereby this class is visible in code \ref{lst:typeInfo}:
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily TypeInformation.java}}, label={lst:typeInfo}, basicstyle=\footnotesize]
+public class TypeInformation {
+   /** Id (the position in the symbol table regarding variables) */
+   private int id;
+
+   /** Type of the construct (function, variable, ...) */
+   private final DataType dataType;
+
+   /** Address of a type (structure) regarding references */
+   private int address;
+...
+   public final String getJvmType() {
+      if (dataType != DataType.OBJREF) {
+         return dataType.getJvmType();
+      } else {
+         return Integer.toString(address);
+      }
+   }
+
+   public final boolean isArray() {
+      switch (dataType) {
+         case IARRAY:
+         case FARRAY:
+         case SARRAY:
+            return true;
+         default:
+            return false;
+      }
+   }
+}
+\end{lstlisting}
+
+This class stores a type and also an address if, for example, a reference to a structure exists. Accordingly, a variable can later be assigned to a structure. A distinction is made between objects and primitive data types that are visible in code \ref{lst:dataType}:
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily DataType.java}}, label={lst:dataType}, basicstyle=\footnotesize]
+public enum DataType {
+   /** A specific type regarding the JVM and E. */
+   BOOL("bool", "Z"),
+   INT("int", "I"),
+   IARRAY("int[]", "[I"),
+   FLOAT("float", "F"),
+   FARRAY("float[]", "[F"),
+   STRING("String", "Ljava/lang/String;"),
+   SARRAY("String[]", "[Ljava/lang/String;"),
+   VOID("void", "V"),
+   OBJREF("", "");
+
+   /** Type in E */
+   private final String type;
+
+   /** Type in the JVM */
+   private final String jvmType;
+...
+   public static DataType getType(final String type) {
+      switch (type) {
+         case "bool":
+            return BOOL;
+         case "int":
+            return INT;
+         case "int[]":
+            return IARRAY;
+...
+         default:
+            return OBJREF;
+      }
+   }
+...
+}
+\end{lstlisting}
+
+For example, if an integer is called, the corresponding data type \texttt{INT} is pushed onto the stack. With an addition, this procedure is repeated. The addition can then pop these two data types from the stack and make decisions according to the code generation. The data type for the result is then pushed onto the stack again so that \texttt{print} uses the correct data type for the output. The individual abbreviations stand for the data type in binary code and are explained in the next chapter.
+
+As already mentioned, the symbol table can also be extended in the context of variables. So in case of a variable declaration like \texttt{int a} the method \texttt{visitVariableDeclaration} is called and the position as well as the type is saved to the identifier. If a reference exists, the corresponding address for the object is also saved. If the variable already exists for an assignment, the position is determined and the corresponding value is saved. Otherwise, the procedure is analogous to the declaration. Later, the value of the variable can be retrieved if \texttt{visitVariableExpression} is called during traversing. Such expressions can also occur in branches or loops with blocks where the evaluation then takes place in \texttt{visitBranch} or \texttt{visitLoop}. Since labels must be unique, a counter \texttt{branchCounter} respectively \texttt{loopCounter} is incremented accordingly.
+
+The same principle is not applied to functions because a function may be called if the definition is further down in the program. For this reason, functions have their own visitor which first collects the signatures (name and parameter types of the functions) and pass them to the visitor from code \ref{lst:visitor} on page \pageref{lst:visitor}. This also ensures total visibility. As already mentioned, a function can also have a body of any length. So that local variables can also be used, there are different local and one global scope. For example, the corresponding realization is visible in the method \texttt{visitFunctionPrototypes} where a new reference to an own symbol table is made. The visitor for functions is shown in code \ref{lst:visitor2}:
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily FunctionDefinitionVisitor.java}}, label={lst:visitor2}, basicstyle=\footnotesize]
+public class FunctionDefinitionVisitor {
+   public static FunctionPrototypeList findFunctionPrototypes(
+      final ParseTree tree) {
+      // Remember all prototypes of defined functions
+      final FunctionPrototypeList definedFunctionPrototypes = 
+         new FunctionPrototypeList();
+      // Notice the built-in functions
+      setBuiltInFunctionDefinitions(definedFunctionPrototypes);
+      // An anonymous class
+      new EBaseVisitor<Void>() {
+         @Override
+         public Void visitFunctionDefinition(FunctionDefinitionContext 
+            ctx) {
+            // Get return type
+            final DataType returnType = DataType.getType(ctx.type
+               .getText());
+            // Get function identifier
+            final String functionId = ctx.funcId.getText();
+            final int paramNumber = ctx.formalParams.decls.size();
+            final TypeInformation[] paramTypes = 
+               new TypeInformation[paramNumber];
+            // Get parameters
+            for (int i = 0; i < paramNumber; ++i) {
+               final DataType paramType =
+                  DataType.getType(ctx.formalParams.decls.get(i)
+                  .type.getText());
+               if (paramType == DataType.VOID) {
+                  throw new WrongDataTypeException(ctx.start);
+               }
+               paramTypes[i] = new TypeInformation(paramType);
+            }
+            // Has a function regarding the signature already been 
+            // defined?
+            if (definedFunctionPrototypes.contains(functionId, 
+               paramTypes)) {
+               throw new AlreadyDefinedFunctionException(ctx.funcId);
+            }
+            definedFunctionPrototypes.add(new 
+               TypeInformation(returnType), functionId, paramTypes);
+            return null;
+         }
+      }.visit(tree);
+      return definedFunctionPrototypes;
+   }
+   
+   private static void setBuiltInFunctionDefinitions(
+      FunctionPrototypeList definedFunctions) {
+      definedFunctions.add(new TypeInformation(DataType.VOID), "print", 
+         new TypeInformation[] {new TypeInformation(DataType.INT)});
+      ...
+      definedFunctions.add(new TypeInformation(DataType.INT), "length",
+         new TypeInformation[] {new TypeInformation(DataType.SARRAY)});
+   }
+}
+\end{lstlisting}
+
+Among other things, the built-in functions that a user can call later without importing are also defined here. In contrast to the main visitor, the implementation of \texttt{aggregateResult} is omitted. Thus states are omitted whereby the method for collecting the respective functions is pure which contributes to the increase of performance. This is stored in an additional list (see code \ref{lst:functionlist}):
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily FunctionPrototypeList.java}}, label={lst:functionlist}, basicstyle=\footnotesize]
+public class FunctionPrototypeList {
+   /** Contains all function prototypes from the respective program. */
+   private final List<FunctionPrototype> functionPrototypes;
+...
+   public final boolean contains(final String functionId, final 
+      TypeInformation[] params) {
+      for (FunctionPrototype prototype : functionPrototypes) {
+         // Get parameters of the current function in the list
+         final TypeInformation[] functionParameters = prototype
+            .getParams();
+         // The function may only exist if the number of parameters and 
+         // the function name match
+         if (functionParameters.length == params.length &&  
+            functionId.equals(prototype.getFunctionId())) {
+            if (functionParameters.length == 0 && params.length == 0) {
+               // There are no parameters available => 
+               // The function signatures are the same
+               return true;
+            }
+            boolean match = true;
+            // Look more closely at the individual data types of 
+            // the parameters
+            for (int i = 0; i < functionParameters.length; ++i) {
+               if (functionParameters[i].getDataType() != params[i]
+                  .getDataType()) {
+                  // Data types do not match => 
+                  // function signatures cannot be the same
+                  match = false;
+                  break;
+               }
+            }
+            if (match) {
+               return true;
+            }
+         }
+      }
+      return false;
+   }
+
+   public final void add(final TypeInformation typeInfo, final String 
+      functionId, final TypeInformation[] params) {
+      functionPrototypes.add(new FunctionPrototype(typeInfo, functionId, 
+         params));
+   }
+...
+   public final FunctionPrototype get(final String functionId, final int 
+      parameterNumber) {
+      for (FunctionPrototype prototype : functionPrototypes) {
+         if (prototype.getFunctionId().equals(functionId) && 
+            prototype.getParamNumber() == parameterNumber) {
+            return prototype;
+         }
+      }
+      return null;
+   }
+}
+\end{lstlisting}
+
+The same principle also applies to structures that can be defined individually. There is also a separate visitor which first determines the names of the structures and maps them to positions. The following code \ref{lst:visitor3} shows this procedure:
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily CustomTypeVisitor.java}}, label={lst:visitor3}, basicstyle=\footnotesize]
+public class CustomTypeVisitor {
+   public static LinkedHashMap<String, CustomType> findTypes(final 
+      ParseTree tree) {
+      // Saves the names of the structures and their positions (from top 
+      // to bottom).
+      final Map<String, Integer> structIds = new LinkedHashMap<>();
+
+      // Holds the structures with variables and types as well as 
+      // references.
+      final LinkedHashMap<String, CustomType> structs = 
+         new LinkedHashMap<>();
+
+      // An anonymous class (first round)
+      new EBaseVisitor<Void>() {
+         /** Position of the custom data type */
+         int typeId = 0;
+
+         @Override
+         public Void visitStructDeclaration(StructDeclarationContext 
+            ctx) {
+            // The name of the structure must not appear twice
+            if (structIds.get(ctx.structId.getText()) != null) {
+               throw new AlreadyDeclaredStructException(ctx.structId);
+            } else {
+               structIds.put(ctx.structId.getText(), typeId++);
+            }
+            return null;
+         }
+      }.visit(tree);
+
+      // An anonymous class (second round)
+      new EBaseVisitor<Void>() {
+         /** Position of the custom data type */
+         int typeId = 0;
+
+         @Override
+         public Void visitStructDeclaration(StructDeclarationContext 
+            ctx) {
+            // Store the variables types
+            final List<TypeInformation> varTypes = new ArrayList<>();
+            // Maps the variable identifiers to its positions
+            final Map<String, Integer> varIds = new HashMap<>();
+            // Iterate over the variables in the structure
+            for (int i = 0; i < ctx.decls.size(); ++i) {
+               final String varType = ctx.decls.get(i).type.getText();
+               // Get Data type object for the desired data type
+               final DataType type = DataType.getType(varType);
+               TypeInformation newType;
+               if (type == DataType.OBJREF) {
+                  final Integer structId = structIds.get(varType);
+                  if (structId == null) {
+                     throw new UndeclaredStructException(ctx.decls
+                        .get(i).type.start);
+                  } else {
+                     // There is a reference => Map the variable type 
+                     // to the struct position
+                     newType = new TypeInformation(type, structId);
+                  }
+               } else {
+                  newType = new TypeInformation(type);
+               }
+               varTypes.add(newType);
+               final String varId = ctx.decls.get(i).varId.getText();
+               if (!varIds.containsKey(varId)) {
+                  varIds.put(varId, i);
+               } else {
+                  throw new AlreadyDeclaredVariableException(ctx.decls
+                     .get(i).varId);
+               }
+            }
+            structs.put(ctx.structId.getText(), new CustomType(typeId++, 
+               varTypes, varIds));
+            return null;
+         }
+      }.visit(tree);
+      return structs;
+   }
+}
+\end{lstlisting}
+
+Then, references can also be determined within \texttt{visitStructDeclaration}. It is possible that types are defined in types which is why a double traversing occurs. Afterwards, the names of the types as well as the attributes and references are stored in a map. In the last traversing before the main traversing the static variables are determined which is shown in the following code \ref{lst:visitor4}:
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily StaticVariableVisitor.java}}, label={lst:visitor4}, basicstyle=\footnotesize]
+public class StaticVariableVisitor {
+   public static Map<String, TypeInformation> findStaticVariables(
+      final ParseTree tree, final LinkedHashMap<String, CustomType> 
+      structs) {
+      // Saves the names and types (also references) of the static 
+      // variables.
+      final Map<String, TypeInformation> staticVars = new HashMap<>();
+
+      // An anonymous class
+      new EBaseVisitor<Void>() {
+         int typeId = 0;
+
+         @Override
+         public Void visitProgram(ProgramContext ctx) {
+            for (ParseTree child : ctx.children) {
+               if (child instanceof StatementCommandContext) {
+                  visit(child);
+               }
+            }
+            return null;
+         };
+
+         @Override
+         public Void visitVariableDeclaration(VariableDeclarationContext 
+            ctx) {
+            final String varType = ctx.type.getText();
+            final DataType dataType = DataType.getType(ctx.type
+               .getText());
+            final String varId = ctx.varId.getText();
+            if (staticVars.containsKey(varId)) {
+               // A variable must not be declared twice
+               throw new AlreadyDeclaredVariableException(ctx.varId);
+            } else if (dataType == DataType.OBJREF) {
+               final CustomType struct = structs.get(varType);
+               if (struct == null) {
+                  throw new UndeclaredStructException(ctx.start);
+               } else {
+                  // There is a reference => Map the variable type to  
+                  // the struct position
+                  staticVars.put(varId, new TypeInformation(typeId, 
+                     dataType, struct.getId()));
+               }
+            } else {
+               // Primitive data type
+               staticVars.put(varId, new TypeInformation(typeId, 
+                  dataType));
+            }
+            ++typeId;
+            return null;
+         }
+      }.visit(tree);
+      return staticVars;
+   }
+...
+}
+\end{lstlisting}
+
+If there is a reference to a structure, the respective address including the type is inserted, otherwise only the data type. Later, a decision is made between a global or local scope (for functions) about the variable \texttt{isGlobal} which specific code is generated. So if, for example, the construct \emph{struct A \{ int a; \} A a = new A(0);} is present, then \texttt{Point 0 \{int, int\}} and \texttt{p : 0} would apply with regard to a debug mode, i.e. \texttt{p} refers to \texttt{Point}. In the case of further structures, the number would be increased. For example, the numbers are then used later during code generation as indexes for variables.
+
+Due to the increased complexity there is an exception handling. In concrete terms, type and declaration analysis are implemented here in the form of exceptions for which a base class \ref{lst:exception} is used:
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily CompilerException.java}}, label={lst:exception}, basicstyle=\footnotesize]
+public class CompilerException extends RuntimeException {
+
+   protected int line;
+
+   protected int column;
+
+   public CompilerException(Token token) {
+      line = token.getLine();
+      column = token.getCharPositionInLine();
+   }
+}
+\end{lstlisting}
+
+If a construct of language \emph{E} is used incorrectly, the row, column and reason are specified within the traversal. For example, there are the following exceptions:
+
+\begin{itemize}
+	\item If a variable was not declared before use
+	\item If a variable has been defined twice with respect to the identifier
+	\item If a function was not defined before use
+	\item If a function has been defined twice
+	\item If a structure was not defined before use
+	\item If a structure has been defined twice
+	\item If a wrong data type was used inside an illegal operation
+	\item If an unknown built-in function was used
+	\item If an unknown imported module was used
+\end{itemize}
+
+\textbf{Note}: The exceptions refer to the specific scope.
+
+In the case of \texttt{print(a);} the exception \texttt{1:6 <Undeclared variable: <a>;} is thrown into \texttt{visitVariableDeclaration} (see chapter \ref{sec:tests} on page \pageref{sec:tests}) if the identifier is not in the hash table. The same applies to variables that have already been defined. With regard to functions the signature decides whether a function is duplicated or not. As already mentioned, this check is already carried out in the \texttt{FunctionDefinitionVisitor} (see code \ref{lst:visitor2} on page \pageref{lst:visitor2}). If, for example, a \texttt{float get\_val() \{ return 1.0; \} float get\_val() \{ return 2.0; \}} was programmed, the message \texttt{2:4 Already defined function: <get\_val>;} would appear. The respective body and a correct function call are still checked in the main visitor (see code \ref{lst:visitor} on page \pageref{lst:visitor}). In addition, all operations are checked to see whether the data types are compatible with them. For example, if an attempt is made to call the code \texttt{String a = 5.0 + 3;}, a \texttt{WrongDataTypeException} is thrown. This procedure can also be transferred to the other application scenarios.
+
+The corresponding derived classes can be found in the appendix on page \pageref{sec:exceptions}.
+
+\subsection{Code generation}
+\label{sec:code_generation}
+
+During code generation, components of the grammar are transformed into code by required instructions, depending on the respective architecture. Here, \emph{Jasmin}\footnote{Jasmin, \url{https://cs.au.dk/~mis/dOvs/jvmspec/ref-Java.html}} is used as assembler for the JVM where bytecode is generated from assembler-like instructions. This can then be interpreted or executed in the JVM. The instructions are described in ASCII format. The basic structure is as follows (see Code \ref{lst:jasmin}):
+
+\begin{lstlisting}[frame=htrbl, caption={Basic structure of {\ttfamily Jasmin}}, label={lst:jasmin}, basicstyle=\footnotesize]
+.class public E
+.super java/lang/Object
+...
+.method public static main([Ljava/lang/String;)V
+   .limit stack 100
+   .limit locals 100
+...
+   return
+.end method;
+\end{lstlisting}
+
+Jasmin statements are comments, directives and instructions. A comment begins with a semi-colon and the assembler ignores everything after that to the end of line. Directives like \texttt{.super} begin with a period and are executed by the assembler rather than the JVM. An instruction can consists of a label, an operator (also called a mnemonic) and operands. For example, these can be arithmetic or logical. The \texttt{.super} construct indicates an inheritance in which the corresponding packages must also be specified. The \texttt{[L} command specifies an argument with an array of a certain type (also called the descriptor). The symbol \texttt{V} stands for no return (also called Void). The command \texttt{.limit} can be used to specify upper limits for e.g. the stack or local variables. In this case, the \texttt{return} construct determines the end of the main method. Before this are all instructions, such as outputs or variable declarations which are determined during traversing by the AST.
+
+Altogether, the individual programs written in \emph{E} are processed in a queue and compiled individually as shown in the following code \ref{lst:main}:
+
+\begin{lstlisting}[frame=htrbl, caption={Implementation of {\ttfamily Main.java}}, label={lst:main}, basicstyle=\footnotesize]
+public class Main {
+   /** Temporary directory for the compiled files */
+   private static Path tempDir;
+
+   /** Parent directory (path to file for legacy) */
+   private static File parentDir;
+
+   /** The namespace of the program you want to compile currently */
+   private static String namespace;
+
+   /** Holds the programs (including path) to compile. */
+   public static Queue<String> programs;
+
+   /** Holds the compiled programs (including path). */
+   public static Queue<String> compiledPrograms;
+
+   public static void main(String[] args) throws Exception {
+      // Path to the main program
+      final String fileName = "e/test/main";
+      // Create a temporary directory for programs compiled later
+      tempDir = createTempDir(fileName);
+      parentDir = tempDir.toFile();
+      programs = new LinkedList<>();
+      // Add the program you want to compile
+      programs.add(fileName);
+      compiledPrograms = new LinkedList<>();
+      // Process the programs
+      while (!programs.isEmpty()) {
+         final String program = programs.poll();
+         compiledPrograms.add(program);
+         // Set the namespace for later references
+         namespace = program.replace('/', '_');
+         // The current file to compile
+         final File currentFile = new File(parentDir.getPath(), 
+            namespace + ".e");
+         final CharStream srcCode = CharStreams.fromFileName(program + 
+            ".e");
+...
+         // Separate the main program from the structures
+         final String[] compiledCode = compile(srcCode).split("\\*");
+         if (!compiledCode[0].isEmpty()) {
+            final ClassFile classFile = new ClassFile();
+            classFile.readJasmin(new StringReader(compiledCode[0]), "", 
+               false);
+            final Path outputPath = tempDir.resolve(currentFile
+               .getAbsolutePath().substring(0, currentFile
+               .getAbsolutePath().length() - 2) + ".class");
+            classFile.write(Files.newOutputStream(outputPath));
+            final ClassFile[] extraFiles = new ClassFile[compiledCode
+               .length - 1];
+            // Create class files for the declared structs
+            for (int i = 0; i < compiledCode.length - 1; ++i) {
+               final ClassFile file = new ClassFile();
+               extraFiles[i] = file;
+               file.readJasmin(new StringReader(compiledCode[i + 1]), 
+                  "", false);
+               final Path newPath = tempDir.resolve(file.getClassName() 
+                  + ".class");
+               file.write(Files.newOutputStream(newPath));
+            }
+         }
+      }
+      // Run the compiled program
+      final String result = runClass(tempDir, fileName.replace("/", "_"
+         ));
+      // Delete the created temporary directory
+      deleteTempDir();
+   }
+
+   public static String compile(final CharStream sourceCode) {
+      // Control characters are ignored
+      ELexer lexer = new ELexer(sourceCode);
+      CommonTokenStream tokens = new CommonTokenStream(lexer);
+      EParser parser = new EParser(tokens);
+      // Start rule
+      ParseTree tree = parser.program();
+      // Collect all function definitions (without body)
+      FunctionPrototypeList definedFunctionPrototypes =
+         FunctionDefinitionVisitor.findFunctionPrototypes(tree);
+      // Collect all structs with declared variables and types
+      // (including references)
+      LinkedHashMap<String, CustomType> declaredStructs =
+          CustomTypeVisitor.findTypes(tree);
+      // Collect all static variables in the main program
+      // (including references to structs)
+      Map<String, TypeInformation> declaredStaticVars =
+         StaticVariableVisitor.findStaticVariables(tree, 
+         declaredStructs);
+      // Create an assembler program for Jasmin based on instructions
+      return new EVisitor(definedFunctionPrototypes, declaredStructs,
+         declaredStaticVars, namespace, parentDir).visit(tree);
+   }
+...
+   public static String runClass(final Path dir, final String className)
+      throws Exception {
+      final Process process =
+      Runtime.getRuntime().exec(new String[] {"java", "-cp", dir
+         .toString(), className});
+      try (InputStream input = process.getInputStream()) {
+         Scanner scanner = new Scanner(input);
+         if (scanner.useDelimiter("\\A").hasNext()) {
+            String result = scanner.useDelimiter("\\A").next();
+            scanner.close();
+            return result;
+         }
+         scanner.close();
+         return null;
+      }
+   }
+}
+\end{lstlisting}
+
+In general, the main procedure is as follows:
+
 \begin{enumerate}
-	\item Die Elemente werden auf die \glqq Buckets\grqq{} verteilt (Partitionierung).
-	\item Jeder \glqq Bucket\grqq{} wird mit einem weiteren Sortierverfahren sortiert.
-	\item Der Inhalt der sortierten \glqq Buckets\grqq{} wird konkateniert.
+	\item The main program is added to the queue.
+	\item As long as the queue is not empty, do the following:
+	\begin{enumerate}
+		\item Get the current file to compile from the queue.
+		\item Convert the file to a namespace (for class names, references, etc.).
+		\item Compile the file in several steps (see figure \ref{fig:compiler_phases} on page \pageref{fig:compiler_phases}).
+		\item If there are structures, they are stored in separate class files.
+	\end{enumerate}
 \end{enumerate}
-Die Ausgabedaten werden also gesondert gespeichert, womit die Eingabedaten nicht überschrieben werden. Der gesamte Algorithmus benötigt dementsprechend dann eine lineare Rechenzeit.\\
-Nach dem Satz von Bryant sind ROBDDs kanonische Darstellungen Boolescher Funktionen \cite[S.677-691]{b1986}. Als Beispiel soll hierzu im Folgenden die Funktion \\$f(x_1, x_2, x_3, x_4) = \neg x_1x_2+x_2(x_3+x_4)$ mit der Variablenordnung $\pi : x_1 < x_2 < x_3 < x_4$ dienen, die aus der Abbildung \ref{fig:robdd} hervorgeht. Die jeweilige Subfunktion infolge der Shannon-Zerlegung (siehe Kapitel \ref{sec:bdd} auf Seite \pageref{sec:bdd}) ist an den Knoten gekennzeichnet:
+
+Since there can also be imports (see \texttt{visitIncludes} in code \ref{lst:visitor} on page \pageref{lst:visitor}), these are also processed in the queue. Finally, the compiled code can be executed.
+
+After the described context analysis (see chapter \ref{sec:context_analysis} on page \pageref{sec:context_analysis}) of the example from the figure \ref{fig:ast} on page \pageref{fig:ast} the following code \ref{lst:jasmin2} would be generated:
+
+\begin{lstlisting}[frame=htrbl, caption={Generated code of {\ttfamily \emph{E}}}, label={lst:jasmin2}, basicstyle=\footnotesize]
+.class public e_test_main
+.super java/lang/Object
+
+.method public static main([Ljava/lang/String;)V
+   .limit stack 4
+   .limit locals 1
+
+   getstatic java/lang/System/out Ljava/io/PrintStream;
+   ldc 3
+   ldc 2
+   ldc 4
+   imul
+   iadd
+   invokevirtual java/io/PrintStream/print(I)V
+
+   return
+.end method
+\end{lstlisting}
+
+To produce this code, a \texttt{StringBuilder} is used (see \texttt{visitProgram} in code \ref{lst:visitor} on page \pageref{lst:visitor}). This procedure saves the use of various objects and thus increases performance. The command \texttt{getstatic} places the object behind \texttt{System/Out} on the stack. Furthermore, the constants 3, 2 and 4 are placed one after the other on the stack. The command \texttt{imul} multiplies the two top elements 4 and 2 and puts the result back on the stack. This is then added to the 3 by \texttt{iadd}. This procedure is visualized as follows (see figure \ref{fig:stack}):
+
 \begin{figure}[bth]
 	\centering
-	\includegraphics[scale=0.9]{./img/robdd}
-	\caption[ROBDD für die Funktion $f = \neg x_1x_2+x_2(x_3+x_4)$]{ROBDD für die Funktion $f = \neg x_1x_2+x_2(x_3+x_4)$}
-	\label{fig:robdd}
-\end{figure}\\
-\noindent
-Diese Minimalitätsaussage bezieht sich jedoch nur auf eine Funktion $f$ mit fester Variablenordnung. Die nachfolgende Abbildung \ref{fig:robdd2} zeigt die Funktion $f$ mit einer anderen Variablenordnung $\pi : x_1 < x_3 < x_4 < x_2$:
-\begin{figure}[bth]
-	\centering
-	\includegraphics[scale=0.9]{./img/robdd2}
-	\caption[ROBDD für $f$ mit einer anderen Ordnung]{ROBDD für $f$ mit einer anderen Ordnung}
-	\label{fig:robdd2}
-\end{figure}\\
-\noindent
-Die Größe hängt insgesamt von der Variablenordnung ab, die exponentiell sein kann \cite{p2010}. Zur Verdeutlichung dieses Sachverhalts wird die Funktion $f \in \mathbb{B}_{2n}$ mit \\
-$f(x_1, x_2, x_3, x_4, \dots, x_{2n-1}, x_{2n}) = (x_1+x_2) (x_3+x_4)\dots(x_{2n-1}+x_{2n})$, wobei $n=3$ angenommen. Das dazugehörige ROBDD ist der Abbildung \ref{fig:expSize} auf Seite \pageref{fig:expSize} zu entnehmen:
-\newpage
-\begin{figure}[bth]
-	\centering
-	\includegraphics[scale=0.3]{./img/expSize}
-	\caption[Lineares und exponentielles Wachstum von Knoten]{Lineares und exponentielles Wachstum von Knoten}
-	\label{fig:expSize}
+	\includegraphics[scale=0.5]{./img/stack}
+	\caption[Relation between the operations and stack]{Relation between the operations and stack}
+	\label{fig:stack}
 \end{figure}
-Das linke ROBDD besitzt die Variablenordnung $\pi : x_1 < x_2 < x_3 < x_4 < x_5 < x_6$. Es ist zu erkennen, dass es sich hier um ein lineares Wachstum der Knoten in Bezug auf die Variablenanzahl handelt, da es $2n+2$ Knoten gibt. Wird hingegen die Variablenordnung $\pi : x_1 < x_3 < x_5 < x_2 < x_4 < x_6$ gewählt, so ist ein exponentielles Wachstum ersichtlich. Das ROBDD bläht sich hierzu bis zur Tiefe $n$ zu einem vollständig binären Baum auf, wobei jeder Knoten die Informationen zu allen vorherigen Variablenbelegungen besitzt. Somit können diese Knoten also nicht zusammengefasst werden und es gibt $2^{n+1}$ Knoten.\\
-Eine gute Ordnung zu finden ist nicht immer leicht. So benötigen nahezu alle Booleschen Funktionen sogar mit einer optimalen Variablenordnung mindestens $\frac{2^n}{2n}$ Knoten \cite{ll92}. In der Praxis finden jedoch hauptsächlich Boolesche Funktionen eine Anwendung, die relativ einfach aufgebaut sind. Somit gelingt es i.\,d.\,R. eine optimale Ordnung zu finden, sodass eine Darstellung durch ein ROBDD effizient möglich ist \cite{g2002}. Insgesamt betrachtet ist das Problem, eine optimale Variablenordnung zu finden, jedoch NP-vollständig, kann allerdings mit verschiedenen Heuristiken in Polyzeit behandelt werden \cite{bw1999}.\\
-Für viele Funktionen wie z.\,B. XOR liefern BDDs jedoch eine kompakte Repräsentation, selbst wenn sie mittels KNF/DNF nicht kompakt darstellbar sind. Es kann zudem in konstanter Zeit geprüft werden, ob eine Funktion (dargestellt durch ein BDD) erfüllbar (SAT), d.\,h. $sat(f) \Leftrightarrow \exists a \in B^n, \text{ sodass } f(a) = 1 \text{ für } f \in B_{n,1}$ (siehe Kapitel \ref{sec:erfuellbar} auf Seite \pageref{sec:erfuellbar}) oder eine Tautologie (siehe Kapitel \ref{sec:tautologietest} auf Seite \pageref{sec:tautologietest}) ist \cite{bfms2001}. Im Allgemeinen ist SAT nach dem Satz von Cook und Levin NP-vollständig, wobei die Laufzeit exponentiell ist, da alle $2^n$ Belegungen systematisch erzeugt werden müssen \cite{km2007}.
-\subsection{Operationen auf BDDs}
-\label{sec:operationen}
-Wie bereits in Kapitel \ref{sec:bdd_grundlagen} auf Seite \pageref{sec:bdd_grundlagen} erwähnt, werden viele Anforderungen an Boolesche Funktionen gestellt.\\
-Wenn Boolesche Funktionen realisiert bzw. analysiert werden, so wird auf Datenstrukturen gearbeitet, die als solche Funktionen interpretiert werden können. Mit ROBDDs sollen diesbezüglich praktisch wichtige Boolesche Funktionen effizient dargestellt und Berechnungen darauf ausgeführt werden. Besonders sollen effiziente Berechnungen ermöglicht werden, die mit anderen Darstellungen von Booleschen Funktionen wegen dem Bedarf der Rechenzeit und des Speicherplatzes nicht möglich sind. So gibt es bspw. den Äquivalenztest oder die Synthese, worunter ein Entscheidungs- bzw. Berechnungsproblem verstanden wird. Mithilfe von BDDs sind solche -- im Gegensatz zu Formeln oder Schaltkreisen -- effizient lösbar. Es sollen daher im Folgenden wichtige Operationen in ihrem Verfahren und ihrer Komplexität (siehe Kapitel \ref{sec:formal} auf Seite \pageref{sec:formal}) untersucht werden. So gibt es bspw. die Booleschen Operatoren wie \texttt{and}, \texttt{or} und \texttt{not}, die bezüglich ROBDDs in der Laufzeit polynomiell beschränkt sind, was in Kapitel \ref{sec:ite} auf Seite \pageref{sec:ite} gezeigt wird. Es können jedoch zu anderen Darstellungsformen Unterschiede festgestellt werden, die in der Tabelle \ref{tab:bop} erläutert sind \cite{m2007}:
-\begin{table}[bth]
+\noindent
+
+\textbf{Note}: If functions or structs are used, the respective parameters respectively attributes are also stored on the stack.
+
+With the command \texttt{invokevirtual} the method \texttt{print} is called with an integer as argument which outputs the result. If the symbol table is to be extended with regard to variables, there are the commands \texttt{istore} and \texttt{iload} to store a value in a variable from the stack or to get a value from this position (see code \ref{lst:visitor} on page \pageref{lst:visitor}).
+
+In addition, there are many other constructs such as branches, loops, different operators and so on. The following tables \ref{tab:trans}, \ref{tab:trans2} and \ref{tab:trans3} starting on page \pageref{tab:trans} show the transformation of various such constructs or examples:
+
+\newpage
+
+\begin{table}[bth!]
+	\footnotesize
 	\centering
-	\caption{Vergleich der operationellen Komplexitäten für Darstellungen}
-	\label{tab:bop}
-	\begin{tabular}{ | l | p{10.5cm} | }
+	\caption{Code transformations}
+	\label{tab:trans}
+	\begin{tabular}{|l|l|l|}
 		\hline
-		\textbf{Darstellung} & \textbf{Beschreibung} \\ \hline
-		Wahrheitstafel & Die Laufzeit ist proportional zu $2^n$, d.\,h. linear in der Größe zur Wahrheitstafel.\\ \hline
-		Boolesche Ausdrücke & Hierzu können die beiden Operatorbäume (siehe Kapitel \ref{sec:bAusdruecke} auf Seite \pageref{sec:bAusdruecke}) kopiert werden. Anschließend erfolgt eine Verknüpfung über eine neue Wurzel. Insgesamt besteht eine polynomielle Laufzeit. \\ \hline
-		DNF & Die Or-Operation wird durch eine Konkatenation der DNFs umgesetzt, die And-Operation hingegen durch das Ausmultiplizieren davon. Diese Operation ist wie auch die Not-Operation, die durch Anwendung der Regel von De Morgan sowie anschließendem Ausmultiplizieren der Klauseln umgesetzt wird, recht teuer. Insgesamt besteht dennoch eine polynomielle Laufzeit. \\ \hline
-		KNF & Hierbei sind die Or- und Not-Operation recht teuer. Die OR-Operation wird durch das Ausmultiplizieren der KNFs umgesetzt, die NOT-Operation hingegen durch Anwendung der Regel von De Morgan sowie anschließendem Ausmultiplizieren der Monome. Bei der And-Operation erfolgt lediglich eine Konkatenation der KNFs. Alle aufgeführten Operationen sind dabei polynomiell beschränkt. \\ \hline
-		Schaltkreise & Die operationellen Komplexitäten entsprechen den Booleschen Ausdrücken. \\ \hline
+		\multicolumn{1}{|c|}{\textbf{Component}} & \multicolumn{1}{c|}{\textbf{Instructions}} & \multicolumn{1}{c|}{\textbf{Transformation}} \\ \hline		
+		\makecell[l]{\texttt{void mul(int a} \\ \quad\texttt{,int b) \{} \\ \quad\texttt{print(a*b);} \\ \texttt{\}} \\ \texttt{mul(5, 3);}} & \makecell[l]{\texttt{getstatic} \\ \texttt{iload} \\ \texttt{imul} \\ \texttt{invokevirtual} \\ \texttt{ldc} \\ \texttt{invokestatic}} & \makecell[l]{\texttt{.method public static mul(II)V} \\ \texttt{.limit locals 2} \\ \texttt{.limit stack 3} \\ \texttt{getstatic java/lang/System/out Ljava/io/PrintStream;} \\ \texttt{iload 0} \\ \texttt{iload 1} \\ \texttt{imul} \\ \texttt{invokevirtual java/io/PrintStream/print(I)V} \\ \texttt{return} \\ \texttt{.end method} \\ \texttt{ldc 5} \\ \texttt{ldc 3} \\ \texttt{invokestatic e\_test\_main/mul(II)V}} \\ \hline	
+		\makecell[l]{\texttt{int a = 1;} \\ \texttt{if (a) \{} \\ \quad\texttt{print(5);} \\ \texttt{\} else \{} \\ \quad\texttt{print(3);} \\ \texttt{\}}} & \makecell[l]{\texttt{ldc} \\ \texttt{putstatic} \\ \texttt{getstatic} \\ \texttt{ifne} \\ \texttt{goto}} & \makecell[l]{\texttt{ldc 1} \\ \texttt{putstatic main/v0 I} \\ \texttt{getstatic main/v0 I} \\ \texttt{ifne onTrue1} \\ \texttt{getstatic java/lang/System/out Ljava/io/PrintStream;} \\ \texttt{ldc 3} \\ \texttt{goto endIf1} \\ \texttt{onTrue1:} \\ \texttt{getstatic java/lang/System/out Ljava/io/PrintStream;} \\ \texttt{ldc 5} \\ \texttt{endIf1:}} \\ \hline
+		\texttt{print(0 \&\& 1);} & \makecell[l]{\texttt{ldc} \\ \texttt{ifeq} \\ \texttt{goto} \\ \texttt{invokevirtual}} & \makecell[l]{\texttt{getstatic java/lang/System/out Ljava/io/PrintStream;} \\ \texttt{ldc 0} \\ \texttt{; jump if a is zero} \\ \texttt{ifeq onAndFalse1} \\ \texttt{ldc 0} \\ \texttt{ifeq onAndFalse1} \\ \texttt{ldc 1} \\ \texttt{goto endAnd1} \\ \texttt{onAndFalse1:} \\ \texttt{ldc 0} \\ \texttt{endAnd1:} \\ \texttt{invokevirtual java/io/PrintStream/print(I)V}} \\ \hline
 	\end{tabular}
-\end{table}\\
-\noindent 
-Auch Umwandlungen wie z.\,B. die Überführung einer KNF zu einer DNF kann die Formel exponentiell vergrößern, was nicht verhindert werden kann \cite{s2010}. Im Hinblick auf die verschiedenen Darstellungen gibt es im Laufzeitverhalten also bereits bei den Basisoperationen erhebliche Unterschiede. Weiterhin soll daher auch bezüglich weiterer nützlicher Operationen ein Vergleich zu anderen Darstellungen für Boolesche Funktionen gemacht werden. 
-
-\subsubsection{Äquivalenztest}
-\label{sec:verifikation}
-Hardware- und Softwaresysteme finden eine immer größer werdende Verbreitung wie z.\,B. in eingebetteten Systemen wie Handys oder Autos. Zudem werden Systeme immer komplexer, was z.\,B. mit der Betriebssystementwicklung zusammenhängt \cite{b2008}. Aufgrund dessen, dass Fehler hohe Kosten verursachen, hat die Verifikation von Hardware- und Softwaresystemen eine enorme Bedeutung.\\
-BDDs eignen sich -- wie bereits in Kapitel \ref{sec:bdd_grundlagen} auf Seite \pageref{sec:bdd_grundlagen} erwähnt -- zur Verifikation von Schaltungen. Eine zentrale Aufgabe dabei ist der sog. Äquivalenztest. Angenommen, es gibt zwei Schaltkreise, die in der Abbildung \ref{fig:sks} präsentiert werden:
-\begin{figure}[bth]
-	\centering
-	\includegraphics[scale=1.0]{./img/sks}
-	\caption[Äquivalenz von Schaltkreisen]{Äquivalenz von Schaltkreisen}
-	\label{fig:sks}
-\end{figure}\\
+\end{table}
 \noindent
-Mithilfe eines ROBDDs kann nun eine Aussage zur möglichen Äquivalenz dieser getroffen werden, indem es für die jeweiligen Schaltkreise erstellt wird. Die daraus resultierenden ROBDDs sind in Abbildung \ref{fig:aequivalenz} ersichtlich:
-\begin{figure}[bth]
-	\centering
-	\includegraphics[scale=0.8]{./img/skbdds}
-	\caption[Äquivalenztest mithilfe von BDDs]{Äquivalenztest mithilfe von BDDs}
-	\label{fig:aequivalenz}
-\end{figure}\\
-Demnach sind beide Schaltkreise isomorph zueinander. Durch diesen Test können also unter anderem Schaltungen vereinfacht werden. Allgemein formuliert gilt also:\\
-\begin{tabular}{l|p{12cm}}
-	\textbf{Eingabe:} & OBDDs $G_a$ und $G_b$, wobei $a, b \in \mathbb{B}_n$. \\ 
-	\textbf{Ausgabe:} & \texttt{JA}, falls $a = b$, \texttt{NEIN} sonst. \\ 
-	\textbf{Verfahren:} & Es werden zunächst einmal $G_a$ und $G_b$ zu $G_a'$ und $G_b'$ reduziert. Anschließend werden $G_a'$ und $G_b'$ auf Isomorphie getestet.\\
-	\textbf{Komplexität:} & $O(|G_a|+|G_b|)$, da die Reduktion sowie der Isomorphietest in linearer Zeit möglich sind, weil OBDDs Graphen mit einer Quelle und markierten Knoten sowie Kanten sind (siehe Kapitel \ref{sec:ordnung} auf Seite \pageref{sec:ordnung}). So können $G_a'$ und $G_b'$ simultan mit einer DFS durchlaufen werden, wobei getestet werden muss, ob die erreichten Knoten die gleiche Markierung haben.
-\end{tabular}
-Wenn $a$ und $b$ gemeinsam in einem reduzierten OBDD dargestellt werden bzw. in derselben Unique-Table (siehe Kapitel \ref{sec:utable} auf Seite \pageref{sec:utable}), so ist der Äquivalenztest in konstanter Zeit möglich. Es genügt hierbei der Test, ob die Zeiger für $a$ und $b$ auf denselben Knoten zeigen \cite[S.66]{ms1999}.\\
-Bei Wahrheitstafeln hingegen ist die Laufzeit proportional zu $2^n$, d.\,h. linear in der Größe der Funktionstafeln. Bezüglich Booleschen Ausdrücken, der KNF/DNF und Schaltkreisen sind hierfür keine effizienten Verfahren bekannt.\footnote{Molitor, vgl.~\cite{m2007}}
+With regard to the operations \texttt{and} and \texttt{or}, the direct use of the instructions \texttt{iand} and \texttt{ior} is deliberately waived in order to ensure lazy evaluation. With the disjunction the logic is only reversed in comparison to the conjunction. So that the labels for the jumps are unique, they are uniquely identified by a number.
 
-\subsubsection{Auswertungsproblem}
-\label{sec:auswertung}
-Allgemein betrachtet ist hierzu eine Formel sowie eine Belegung gegeben und es stellt sich die Frage, ob diese Belegung zu einem Funktionswert von $1$ am Ausgang führt. Bezogen auf OBDDs gilt:\\
-\begin{tabular}{l|p{12cm}}
-	\textbf{Eingabe:} & OBDD $G$ für $f \in \mathbb{B}_n$, eine Belegung $x \in \{ 0, 1 \}^n$. \\ 
-	\textbf{Ausgabe:} & \texttt{JA}, falls $f(x) = 1$, \texttt{NEIN} sonst. \\ 
-	\textbf{Verfahren:} & Das OBDD wird von der Wurzel bis zu einem Blatt gemäß der Belegung durchlaufen. Anschließend wird die Markierung des erreichten Blattes ausgegeben. Dieser Vorgang wird auch als \emph{Evaluation} bezeichnet.\\
-	\textbf{Komplexität:} & $O(n)$, da jede Variable höchstens einmal getestet werden darf. Bezüglich des Speicherplatzes gilt natürlich dennoch $O(|G|)$ für den dazugehörigen Aufbau.
-\end{tabular}
-\noindent
-Hinzuzufügen ist, dass bei diesem Test nicht die Möglichkeit besteht, mithilfe eines ROBDDs für eine konstante Laufzeit zu sorgen, was durch folgende Abbildung \ref{fig:auswertung} auf Seite \pageref{fig:auswertung} verdeutlicht werden soll:
 \newpage
-\begin{figure}[bth]
-	\centering
-	\includegraphics[scale=0.5]{./img/auswertung}
-	\caption[BDDs zur Verdeutlichung des Auswertungsproblems]{BDDs zur Verdeutlichung des Auswertungsproblems}
-	\label{fig:auswertung}
-\end{figure}
-Zu erkennen ist ein OBDD sowie ROBDD für die Boolesche Funktion $f(x_1, x_2, x_3) = x_1 \cdot \neg x_2 + x_3$, wobei $f \in \mathbb{B}_3$. Angenommen, die Belegung sei $x = (1,1,1)$, so würde die Funktion $1 \cdot 0 + 1$ zu $1$ auswerten. Bezüglich dem OBDD ist dies zu erkennen, indem gemäß des Verfahrens den Kanten entlang gelaufen wird. Hinsichtlich dem dazugehörigen ROBDD kann jedoch nicht anhand der Wurzel abgesehen werden, wie die Auswertung anhand der jeweiligen Belegung sein wird, da weiterhin die Variablen gemäß der Belegung abgelaufen werden müssen.\\
-Im Vergleich zu den anderen Darstellungen für Boolesche Funktionen gilt ebenfalls ein linearer Aufwand, weil die Anzahl der Aufrufe zur Auswertung durch die Größe der Formel beschränkt ist \cite{m2007}.
 
-\subsubsection{Erfüllbarkeit}
-\label{sec:erfuellbar}
-In Kapitel \ref{sec:ordnung} auf Seite \pageref{sec:ordnung} wurde erwähnt, dass durch die Kanonizität eines OBDDs der Erfüllbarkeitstest in konstanter Zeit möglich ist, was im Folgenden algorithmisch analysiert werden soll. Ein BDD ist erfüllbar, gdw. es nicht aus dem 0-Blatt besteht:\\
-\begin{tabular}{l|p{12cm}}
-	\textbf{Eingabe:} & OBDD $G$ für $f \in \mathbb{B}_n$. \\ 
-	\textbf{Ausgabe:} & \texttt{JA}, falls $\exists$ eine Belegung $x \in \mathbb{B}^n : f_{G}(x) = 1$, \texttt{NEIN} sonst. \\ 
-	\textbf{Verfahren:} & Das OBDD wird von der Quelle mit einer DFS durchlaufen, bis ein 1-Blatt erreicht wird. Der dazu gefundene Pfad gibt eine Eingabe $x$ mit $f(x)=1$ an. Ansonsten gibt es keine derartige Eingabe.\\
-	\textbf{Komplexität:} & $O(|G|)$, da im schlechtesten Fall jeder Knoten und jede Kante betrachtet werden muss.
-\end{tabular}
-Ein dementsprechender Algorithmus \ref{lst:sat} gemäß der Beschreibung des Verfahrens kann wie folgt aussehen, wobei die Variablenordnung $\pi : x_1, \dots, x_n$ angenommen wird:
-\begin{lstlisting}[frame=htrbl, caption={Implementierung von {\ttfamily sat}}, label={lst:sat}]
-program sat()
-  input: G (in Form eines OBDDs)
-  output: Status, ob es einen Funktionswert '1' gibt
-  if ( isTerminal(G) ) then
-    return l(G)
-  end if
-  count := sat( low(G) )
-  if (count != 0) then
-    return !l(G) * count
-  end if
-  return l(G) * sat( high(G) )
-end program
-\end{lstlisting}
-Hierbei steht $l(G)$ für die Markierung des jeweiligen Knotens. Falls sich das low-Kind als 0-Blatt herausstellt, so wird eine Traversierung (ausgehend von der Wurzel zu den Blättern) zum high-Kind eines Knotens gemacht. In der Tiefe des Graphen entspricht dies einer Konjunktion von Literalen und beträgt $O(n)$.\\
-Sollte $G$ jedoch reduziert sein, so wird der Test dahingehend modifiziert, dass geprüft wird, ob die Quelle von $G$ $\neq$ dem 0-Blatt ist. Wird damit zusammenhängend die Abbildung \ref{sec:auswertung} auf Seite \pageref{sec:auswertung} betrachtet, so kann festgestellt werden, dass bei dem ROBDD die Quelle nicht dem 0-Blatt entspricht. Daher ist die dazugehörige Funktion erfüllbar. Dieser adaptierte Test ist -- im Gegensatz zum Auswertungsproblem -- also in konstanter Zeit möglich \cite[S.37]{s2007}.\\
-Im Hinblick auf Schaltkreise, allgemeine Boolesche Ausdrücke sowie KNFs sind keine effiziente Verfahren bekannt, um SAT zu lösen \cite{m2007}. Dagegen kann in Form einer DNF dieses Problem ebenfalls in Polyzeit gelöst werden, da eine Überprüfung dahingehend ausreicht, ob mindestens ein Monom (siehe Kapitel \ref{sec:bAusdruecke} auf Seite \pageref{sec:bAusdruecke}) existiert. Weiterhin besteht bei Wahrheitstafeln eine Laufzeit, die proportional zu $2^n$, d.\,h. linear in der Größe der Wahrheitstafeln ist.
-
-\subsubsection{Anzahl erfüllender Belegungen}
-\label{sec:erfuellbarkeitAnzahl}
-Ähnlich zum Auswertungsproblem in Kapitel \ref{sec:auswertung} auf Seite \pageref{sec:auswertung} ist dieses Problem auch in linearer Zeit -- unabhängig ob ein OBDD/ROBDD vorliegt -- berechenbar \cite[S.37-38]{s2007}. Im Endeffekt geht es darum, wie viele erfüllende Belegungen es gibt, weshalb ein Berechnungsproblem vorliegt:\\
-\begin{tabular}{l|p{12cm}}
-	\textbf{Eingabe:} & OBDD $G$ für $f \in \mathbb{B}_n$. \\ 
-	\textbf{Ausgabe:} & Die Berechnung von $|f_{G}^{-1}(1)|$.\\ 
-	\textbf{Verfahren:} & Markiere zunächst die Quelle mit $2^n$ und die verbliebenen Knoten mit $-1$. Durchlaufe nun $G$ in der vorliegenden Ordnung. Sobald ein Knoten $v$ erreicht wird, der mit einer Eingabe $in$ markiert ist, so wird zu den Markierungen beider Nachfolger der Wert $\frac{in}{2}$ addiert. Letztendlich wird das Gesamtergebnis durch die Summe der Markierungen der 1-Blätter bestimmt. \\
-	\textbf{Komplexität:} & $O(|G|)$, da jeder Knoten und jede Kante betrachtet werden muss.
-\end{tabular}
-Im Endeffekt soll für jede Kante bzw. jeden Knoten berechnet werden, für wie viele Eingaben sie durchlaufen werden. Die Quelle wird für $2^n$ Eingaben traversiert, die 1-Blätter hingegen für $|f^{-1}(1)|$ Eingaben. Sei ein innerer Knoten mit $v$ bezeichnet, der mit einer Variable $x_i$ markiert ist. Zudem steht $in$ für die Eingaben, wofür $v$ durchlaufen wird. Zunächst werden immer jeweils die \glqq Kinder\grqq{} von $v$ betrachtet, anschließend werden die Ergebnisse zusammengezählt und nach oben propagiert. Somit wird $x_i$ nicht vor $v$ getestet, was der folgende Algorithmus \ref{lst:satcount} zeigt:
-\lstset{language=xml}
-\begin{lstlisting}[frame=htrbl, caption={Implementierung von {\ttfamily satCount}}, label={lst:satcount}]
-program satCount()
-  input: G (in Form eines OBDDs)
-  output: Anzahl der Belegungen zum Wert '1'
-  if ( isTerminal(G) ) then 
-    return l(G) * pow(2, n)
-  end if
-  e := satCount( low(G) )
-  t := satCount( high(G) )
-  return (e + t) / 2
-end program
-\end{lstlisting}
-Wenn $G$ ein OBDD-Knoten mit dem Variablenindex \texttt{index(G)} ist, dann gibt es zwei Mengen von Zuweisungen, die für eine erfüllende Belegung sorgen. Sollte demnach bspw. \texttt{index(G) = 0} gelten, so wird die Anzahl derartig ermittelt, indem deren Zuweisungen \texttt{count(low(G))} gefunden werden, die \texttt{low(G)} wahr werden lassen. Analog gilt dies ebenfalls für die Menge \texttt{index(G) = 1}. Folgende Abbildung \ref{fig:satcount} verdeutlicht diesen Sachverhalt:
-\begin{figure}[bth]
+\begin{table}[bth]
+	\footnotesize
 	\centering
-	\includegraphics[scale=0.3]{./img/satcount}
-	\caption[BDD zur Verdeutlichung der Ermittlung von erfüllenden Belegungen]{BDD zur Verdeutlichung der Ermittlung von erfüllenden Belegungen}
-	\label{fig:satcount}
-\end{figure}\\
+	\caption{Code transformations 2}
+	\label{tab:trans2}
+	\begin{tabular}{|l|l|l|}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Component}} & \multicolumn{1}{c|}{\textbf{Instructions}} & \multicolumn{1}{c|}{\textbf{Transformation}} \\ \hline
+		\makecell[l]{\texttt{struct Point \{} \\ \quad\texttt{int x;} \\ \quad\texttt{int y;} \\ \texttt{\}} \\ \texttt{Point p = new} \\ \quad\texttt{Point(1, 2);} \\ \texttt{p.x = 5;}} & \makecell[l]{\texttt{aload} \\ \texttt{invokespecial} \\ \texttt{return} \\ \texttt{new} \\ \texttt{dup} \\ \texttt{putstatic} \\ \texttt{getstatic} \\ \texttt{putfield} \\ \texttt{ldc}} & \makecell[l]{\texttt{.class struct\_main0} \\ \texttt{.super java/lang/Object} \\ \texttt{.field public a0 I} \\ \texttt{.field public a1 I} \\ \texttt{.method public <init>()V} \\ \texttt{aload\_0} \\ \texttt{invokespecial java/lang/Object/<init>()V} \\ \texttt{return} \\ \texttt{.end method} \\ \texttt{} \\ \texttt{.class public main} \\ \texttt{.super java/lang/Object} \\ \texttt{.field public static v0 Lstruct\_main0;} \\ \texttt{.method public static main([Ljava/lang/String;)V} \\ \texttt{.limit stack 4} \\ \texttt{.limit locals 1} \\ \texttt{new struct\_main0} \\ \texttt{dup} \\ \texttt{invokespecial struct\_main0/<init>()V} \\ \texttt{putstatic main/v0 Lstruct\_main0;} \\ \texttt{getstatic main/v0 Lstruct\_main0;} \\ \texttt{ldc 1} \\ \texttt{putfield struct\_main0/a0 I} \\ \texttt{getstatic main/v0 Lstruct\_main0;} \\ \texttt{ldc 2} \\ \texttt{putfield struct\_main0/a1 I} \\ \texttt{getstatic main/v0 Lstruct\_main0;} \\ \texttt{putstatic main/v0 Lstruct\_main0;} \\ \texttt{getstatic main/v0 Lstruct\_main0;} \\ \texttt{ldc 5} \\ \texttt{putfield struct\_main0/a0 I} \\ \texttt{return} \\ \texttt{.end method}} \\ \hline
+\end{tabular}
+\end{table}
 \noindent
-Dementsprechend gibt es hierbei vier erfüllende Belegungen für $G$. Hervorzuheben ist, dass -- wenn ein ROBDD vorliegen würde -- natürlich i.\,d.\,R. weniger Kanten passiert werden müssen. Dennoch bleibt die Laufzeit linear in der Größe des BDDs.\\
-Bei anderen Darstellungen für Boolesche Funktionen -- bis auf Wahrheitstafeln -- ist die Laufzeit nicht polynomiell beschränkt \cite{m2007}. Bei Wahrheitstafeln gilt ebenfalls eine lineare Laufzeit, wobei hervorzuheben ist, dass sich dort die Platzkomplexität in Grenzen halten muss. So würden bspw. $100$ Variablen in $2^{100}$ Zeilen resultieren, weshalb die Variablenanzahl $n$ nicht zu groß sein darf.
-\subsubsection{Tautologietest}
-\label{sec:tautologietest}
-In der Einleitung auf Seite \pageref{sec:einleitung} wurde erwähnt, dass der Tautologietest mithilfe eines ROBDD in konstanter Zeit möglich ist. Im Folgenden soll dieses Entscheidungsproblem ebenfalls algorithmisch analysiert werden. Ein BDD ist eine Tautologie, gdw. es nur aus einem 1-Blatt besteht:\\
-\begin{tabular}{l|p{12cm}}
-	\textbf{Eingabe:} & OBDD $G$ für $f \in \mathbb{B}_n$. \\ 
-	\textbf{Ausgabe:} & \texttt{JA}, falls $f$ von jeder Belegung erfüllt wird (gültig), \texttt{NEIN} sonst. \\ 
-	\textbf{Verfahren:} & Es müssen alle Pfade gesucht werden, die von der Wurzel zu einem 1-Blatt führen. Diese können mithilfe von einem rekursiven Algorithmus berechnet werden, der bei der Wurzel startet. Für jeden inneren Knoten $v$ wird dieselbe Methode für beide Nachfolger sukzessive aufgerufen. Wird ein 1-Blatt erreicht, so wird der Pfad rekonstruiert und die getesteten Variablen derartig belegt, dass dieser Pfad durchlaufen wird.\\
-	\textbf{Komplexität:} & $O(|G|)$, da jeder Knoten und jede Kante betrachtet werden muss.
-\end{tabular}
-Eine Implementierung für das Verfahren kann in Form von Code \ref{lst:checkTautology} folgendermaßen aussehen:
-\lstset{language=xml}
-\begin{lstlisting}[frame=htrbl, caption={Implementierung von {\ttfamily checkTautology}}, label={lst:checkTautology}]
-program checkTautology()
-  input: G (in Form eines OBDDs)
-  output: Status, ob alle Belegungen zum Wert '1' auswerten
-  x := Variablen
-  w := Alle Belegungen zu '1'
-  if (G = 0) then
-    return []
-  else if (G = 1) then 
-    return [{}]
-  else 
-    return [{checkTautology(low(G)).add(w.front((map(x[G], 0))))},
-      {checkTautology(high(G)).add(w.front((map(x[G], 1))))}]
-end program
-\end{lstlisting}
-Es wird eine Variablenordnung von $\pi : x_1, \dots, x_n$ angenommen. Eine Rückgabe \texttt{\{[]\}} würde z.\,B. bedeuten, dass eine Sequenz mit einer leeren Belegung zur Erfüllung einer Formel zurückgegeben wird.\\
-Wenn $G$ jedoch reduziert ist, so muss lediglich geprüft werden, ob die Wurzel von $G$ das 1-Blatt ist. Dies ist trivial und daher in konstanter Laufzeit möglich \cite[S.38]{s2007}. Ein Beispiel hierfür wäre die Boolesche Funktion $f(x_1, x_2, x_3) = x_1 + x_2 + \neg x_1 + x_3$, wobei $f \in \mathbb{B}_3$. Offensichtlich ist diese Funktion eine Tautologie, da das ROBDD lediglich das $1$-Blatt beinhaltet.\\
-Im Hinblick auf die Implementierung (siehe Kapitel \ref{sec:ite} auf Seite \pageref{sec:ite}) können durch diese Operation weiterhin zusätzliche ITE-Aufrufe gespart werden, was dort genauer erläutert wird.\\
-Im Vergleich zu anderen Darstellungen bleibt zu erwähnen, dass der Tautologietest für Schaltkreise, Boolesche Ausdrücke sowie die DNF nur in exponentieller Zeit entscheidbar ist \cite{m2007}. So müssen z.\,B. für Boolesche Ausdrücke alle $2^n$ Belegungen systematisch erzeugt werden. Für die KNF hingegen ist dieser Test in polynomieller Laufzeit entscheidbar, da diese genau dann nicht erfüllbar ist, wenn sie mindestens eine Klausel enthält.
+
+A separate class is created for each structure. Attributes are assigned via \texttt{.field} and there is a default constructor that is initially loaded. In the main class there is a reference to this structure which is identified by \texttt{L}. A structure is created with \texttt{new} or the standard constructor is called with \texttt{invokespecial}. With \texttt{.putfield} values are assigned to the attributes. The suffixes of each variable name result from the position in the symbol table.
+
+\newpage
+
+\begin{table}[bth]
+	\footnotesize
+	\centering
+	\caption{Code transformations 3}
+	\label{tab:trans3}
+	\begin{tabular}{|l|l|l|}
+		\hline
+		\multicolumn{1}{|c|}{\textbf{Component}} & \multicolumn{1}{c|}{\textbf{Instructions}} & \multicolumn{1}{c|}{\textbf{Transformation}} \\ \hline	
+		\makecell[l]{\texttt{int[] a =} \\ \texttt{new int[3];} \\ \texttt{a[0] = 5;} \\ \texttt{print(a[0]);}} & \makecell[l]{\texttt{ldc} \\ \texttt{newarray} \\ \texttt{putstatic} \\ \texttt{getstatic} \\ \texttt{iastore} \\ \texttt{iaload} \\ \texttt{invokevirtual}} & \makecell[l]{\texttt{ldc 3} \\ \texttt{newarray int} \\ \texttt{putstatic main/v0 [I} \\ \texttt{getstatic main/v0 [I} \\ \texttt{ldc 0} \\ \texttt{ldc 5} \\ \texttt{iastore} \\ \texttt{getstatic java/lang/System/out Ljava/io/PrintStream;} \\ \texttt{getstatic main/v0 [I} \\ \texttt{ldc 0} \\ \texttt{iaload} \\ \texttt{invokevirtual java/io/PrintStream/print(I)V}} \\ \hline
+			
+		\makecell[l]{\texttt{int i = 0;} \\ \texttt{while (i < 3)} \\ \texttt{\{} \\ \quad\texttt{i = i + 1;} \\ \texttt{\}}} & \makecell[l]{\texttt{ldc} \\ \texttt{putstatic} \\ \texttt{getstatic} \\ \texttt{if\_icmplt} \\ \texttt{goto} \\ \texttt{ifeq} \\ \texttt{iadd}} & \makecell[l]{\texttt{ldc 0} \\ \texttt{putstatic main/v0 I} \\ \texttt{beginLoop1:} \\ \texttt{getstatic main/v0 I} \\ \texttt{ldc 3} \\ \texttt{if\_icmplt onCmpTrue1} \\ \texttt{ldc 0} \\ \texttt{goto endCmp1} \\ \texttt{onCmpTrue1:} \\ \texttt{ldc 1} \\ \texttt{endCmp1:} \\ \texttt{ifeq endLoop1} \\ \texttt{getstatic main/v0 I} \\ \texttt{ldc 1} \\ \texttt{iadd} \\ \texttt{putstatic main/v0 I} \\ \texttt{goto beginLoop1} \\ \texttt{endLoop1:}} \\ \hline
+		\texttt{int i = 2 < 2;} & \makecell[l]{\texttt{ldc} \\ \texttt{if\_icmplt} \\ \texttt{goto} \\ \texttt{putstatic}} & \makecell[l]{\texttt{ldc 2} \\ \texttt{ldc 2} \\ \texttt{if\_icmplt onCmpTrue1} \\ \texttt{ldc 0} \\ \texttt{goto endCmp1} \\ \texttt{onCmpTrue1:} \\ \texttt{ldc 1} \\ \texttt{endCmp1:} \\ \texttt{putstatic main/v0 I}} \\ \hline
+	\end{tabular}
+\end{table}
+\noindent
+
+Overall, these results are aggregated. In code \ref{lst:visitor} on page \pageref{lst:visitor}, the method \texttt{visitChildren} can be recognized during traversing in this context. This method is executed on several nodes which is why the method \texttt{aggregateResult} is called internally there to aggregate the specific instructions. The relevant operands are also placed on the stack.
+
+A list of more relevant commands with descriptions can be found in the appendix on page \pageref{sec:jasmin_instructions}. Finally, a more complex example can be found in the appendix on page \pageref{sec:eprogram}.

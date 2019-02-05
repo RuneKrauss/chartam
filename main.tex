@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Efficient implementation of binary decision diagrams
+% Development of an own programming language
 %
-% Version 1.0 (2018)
+% Version 1.0 (2019)
 %
 % Original author:
 % Rune Krauss
@@ -11,13 +11,11 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% KOMA-Script: Bundle of classes and packages (article)
+% KOMA-Script: Bundle of classes and packages (scrartcl)
 \documentclass[openright,twoside,a4paper,12pt,headsepline]{scrartcl}
 
 % Use packages for languages, colors, formats etc.
 \usepackage{graphicx}
-\usepackage{ngerman}
-\usepackage[ngerman]{babel}
 \usepackage[right]{eurosym}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -46,6 +44,11 @@
 \fancyhead[LE,RO]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 \usepackage{array}
+\usepackage{makecell}
+\renewcommand\theadalign{bc}
+\renewcommand\theadfont{\bfseries}
+\renewcommand\theadgape{\Gape[4pt]}
+\renewcommand\cellgape{\Gape[4pt]}
 \bibliographystyle{alphadin}
 \frenchspacing
 \usepackage{setspace}
@@ -68,7 +71,7 @@
 \let\
 
 % Create the list of abbreviations
-\renewcommand{\nomname}{Abkürzungsverzeichnis}
+\renewcommand{\nomname}{List of Abbreviations}
 \setlength{\nomlabelwidth}{.25\hsize}
 \renewcommand{\nomlabel}[1]{#1 \dotfill}
 \setlength{\nomitemsep}{-\parsep}
@@ -100,7 +103,6 @@
 \renewcommand{\proofname}{Beweis}
 
 \begin{document}
-
 % Hyphenation to handle the representation of words
 \input{settings/hyphenation}
 
@@ -109,8 +111,8 @@
 
 \onehalfspacing
 
-% Preface of the work (not in the table of contents)
-\include{settings/abstract}
+% Abstract of the work (not in the TOC)
+% \include{settings/abstract}
 
 \singlespacing
 
@@ -123,29 +125,29 @@
 \newpage
 
 % Create the list of figures
-\addcontentsline{toc}{section}{Abbildungsverzeichnis}
+\addcontentsline{toc}{section}{List of Figures}
 \listoffigures
 
 \newpage
 
 % Create the list of tables
-\addcontentsline{toc}{section}{Tabellenverzeichnis}
+\addcontentsline{toc}{section}{List of Tables}
 \listoftables
 
 \newpage
 
 % Create the list of abbreviations
-\addcontentsline{toc}{section}{Quellcodeverzeichnis}
-\fancyhead[L]{Quellcodeverzeichnis}
-\renewcommand{\lstlistlistingname}{Quellcodeverzeichnis}
+\addcontentsline{toc}{section}{List of Codes}
+\fancyhead[L]{List of Codes}
+\renewcommand{\lstlistlistingname}{List of Codes}
 \renewcommand{\lstlistingname}{Code}
 \lstlistoflistings
 
 \newpage
 
 % Create the list of abbreviations
-\addcontentsline{toc}{section}{Abkürzungsverzeichnis}
-\fancyhead[L]{Abkürzungsverzeichnis}
+\addcontentsline{toc}{section}{List of Abbreviations}
+\fancyhead[L]{List of Abbreviations}
 \input{settings/abbreviations/abbreviations}
 \printnomenclature
 
@@ -162,7 +164,6 @@
 % Contents of the thesis
 \input{content/section1}
 \input{content/section2}
-\input{content/section3}
 
 % Conclusion of the thesis
 \input{settings/conclusion}
@@ -173,8 +174,8 @@
 \newpage
 
 % Create the bibliography (Harvard)
-\addcontentsline{toc}{section}{Literaturverzeichnis}
-\renewcommand\refname{Literaturverzeichnis}
+\addcontentsline{toc}{section}{Bibliography}
+\renewcommand\refname{Bibliography}
 \bibliography{main}
 
 \onehalfspacing
@@ -182,12 +183,12 @@
 \newpage
 
 % Appendix
-\addcontentsline{toc}{section}{Anhang}
-\fancyhead[L]{Anhang}
+\addcontentsline{toc}{section}{Appendix}
+\fancyhead[L]{Appendix}
 \input{appendix/appendix}
 
 % Statutory declaration
-\addcontentsline{toc}{section}{Eidesstattliche Erklärung}
+\addcontentsline{toc}{section}{Declaration of Academic Integrity}
 \include{settings/statutory_declaration}
 
 \end{document}
